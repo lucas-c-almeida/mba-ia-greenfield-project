@@ -100,6 +100,19 @@ Parallel execution causes FK violations, deadlocks, and cross-suite contaminatio
 
 During active development, run only the tests related to the file being changed (`npm test -- path/to/file.spec.ts`). Before declaring a task done, run the full suite — see the global `CLAUDE.md` → "Definition of Done (Technical)".
 
+### Open handles false positive (`--detectOpenHandles`)
+
+Running the suite with `--detectOpenHandles` always reports a `CustomGC` open handle blaming `src/mail/mail.module.ts` — the `HandlebarsAdapter` import, which pulls in the native `@css-inline/css-inline`.
+
+**It is a false positive.** That handle is napi-rs's custom-GC async resource, which does not expose `hasRef()`, so Jest cannot check whether it holds the event loop and lists it unconditionally. Proof that it is unref'd:
+
+```bash
+docker compose -f nestjs-project/compose.yaml exec -T nestjs-api node -e 'require("@css-inline/css-inline"); console.log(JSON.stringify(process.getActiveResourcesInfo()))'
+# → [] with exit 0 — after loading the package Node has no active resources at all
+```
+
+So this handle is never why a run would hang: the suite exits on its own and `--forceExit` is **not** needed. If a run really does hang, ignore this handle and look for the cause elsewhere.
+
 ## Long-running Processes
 
 Commands that never exit (dev server, watch modes) must be run in background in the Bash tool — otherwise the agent blocks indefinitely waiting for the process to return.
