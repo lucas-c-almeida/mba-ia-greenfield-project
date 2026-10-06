@@ -121,6 +121,7 @@ These settings are required in `package.json` (jest config) and `test/jest-e2e.j
 
 - `setupFiles: ["dotenv/config"]` — without this, `.env` is not loaded inside the Jest process. `DB_HOST`, `JWT_SECRET`, etc. fall back to undefined or to the host's `localhost`, breaking container-to-container DNS.
 - `testRegex: '.*\\.(spec|integration-spec)\\.ts$'` — covers both unit (`*.spec.ts`) and integration (`*.integration-spec.ts`) suffixes.
+- `testTimeout: 30000` (in both configs) — bootstrapping modules against the real DB exceeds Jest's 5s default on Docker Desktop (slow bind mount, container clock jumps), failing `beforeAll` hooks.
 
 Do not add new test-file suffixes; if a new test type is needed, update the regex deliberately.
 
