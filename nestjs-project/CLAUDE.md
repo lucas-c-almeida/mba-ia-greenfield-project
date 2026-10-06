@@ -68,14 +68,22 @@ npm run start:dev                        # Dev server with hot-reload
 npm run build                            # Compile to dist/
 npm run start:prod                       # Run compiled build
 
-npm test                                 # Unit tests
-npm run test:watch                       # Unit tests in watch mode
-npm run test:cov                         # Coverage report
+npm test                                 # Unit + integration tests (testRegex matches both)
+npm run test:integration                 # Integration tests only (already with --runInBand)
+npm run test:watch                       # Unit + integration tests in watch mode
+npm run test:cov                         # Coverage report over unit + integration
 npm run test:e2e                         # End-to-end tests (always with --runInBand)
+npm run test:debug                       # Unit + integration under the Node inspector
 
 npx tsc --noEmit                         # Type-check (required before declaring a task done)
 npm run lint                             # ESLint with auto-fix
 npm run format                           # Prettier formatting
+
+npm run migration:run                    # Apply pending migrations
+npm run migration:revert                 # Roll back the last applied migration
+npm run migration:generate -- <path>     # Generate a migration from the entity diff
+npm run migration:create -- <path>       # Create an empty migration
+npm run openapi:export                   # Regenerate nestjs-project/openapi.json
 ```
 
 ### Host-only commands (Docker / connectivity probes)
@@ -89,16 +97,29 @@ curl http://localhost:3000
 
 ### Test execution
 
+Which script runs which subset — Jest's `testRegex` (`package.json`) matches both `*.spec.ts` and `*.integration-spec.ts`, so `npm test` is **not** unit-only:
+
+| Script                     | Runs                                              |
+|----------------------------|---------------------------------------------------|
+| `npm test`                 | Unit **and** integration specs together           |
+| `npm run test:integration` | Integration specs only (own `testRegex`)          |
+| `npm run test:e2e`         | E2E specs only (own config, `test/jest-e2e.json`) |
+
+There is no unit-only script: to run unit specs alone, pass their paths to `npm test`.
+
 Integration and e2e suites share a single test database. They **must** be run with `--runInBand`:
 
 ```bash
 docker compose -f nestjs-project/compose.yaml exec nestjs-api npm test -- --runInBand
-docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:e2e   # already configured
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:integration   # already configured
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:e2e           # already configured
 ```
 
 Parallel execution causes FK violations, deadlocks, and cross-suite contamination because suites truncate or seed shared tables concurrently.
 
-During active development, run only the tests related to the file being changed (`npm test -- path/to/file.spec.ts`). Before declaring a task done, run the full suite — see the global `CLAUDE.md` → "Definition of Done (Technical)".
+During active development, run only the tests related to the file being changed — `npm test -- path/to/file.spec.ts` for a unit spec, `npm run test:integration` for the integration suite alone instead of the full unit+integration run. Before declaring a task done, run the full suite — see the global `CLAUDE.md` → "Definition of Done (Technical)".
+
+To debug a failing spec, `npm run test:debug` runs the same unit+integration selection under the Node inspector with `--inspect-brk` (already in band). It **halts before the first line and waits for a debugger to attach**, so treat it as a long-running process — it never exits on its own.
 
 ### Open handles false positive (`--detectOpenHandles`)
 
