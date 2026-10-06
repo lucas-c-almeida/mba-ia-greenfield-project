@@ -7,31 +7,33 @@
 After starting infrastructure, always confirm the containers are up before proceeding:
 
 ```bash
-docker compose ps   # all services must show status "running"
+docker compose -f nestjs-project/compose.yaml ps   # all services must show status "running"
 ```
 
 Then verify each infrastructure service is actually ready to accept connections — not just running:
 
-- **PostgreSQL:** `docker compose exec db pg_isready -U streamtube` — expect `accepting connections`
+- **PostgreSQL:** `docker compose -f nestjs-project/compose.yaml exec db pg_isready -U streamtube` — expect `accepting connections`
 
 Only start the NestJS dev server (`npm run start:dev`) when the user **explicitly** asks to run the application — never as part of "start the environment".
 
 ## Development Environment
 
-This project runs inside Docker. Always use the container for development:
+This project runs inside Docker. Always use the container for development.
+
+The Compose file lives at `nestjs-project/compose.yaml`. Every command in this document is written to run from the **repository root** — the Compose file is always passed explicitly with `-f nestjs-project/compose.yaml`, so no `cd` is needed (see the root `CLAUDE.md` → "Terminal Command Hygiene"):
 
 ```bash
 # Create the local .env from the template (first step on a fresh clone)
-cp .env.example .env
+cp nestjs-project/.env.example nestjs-project/.env
 
 # Start containers
-docker compose up -d
+docker compose -f nestjs-project/compose.yaml up -d
 
 # Install dependencies (first time only)
-docker compose exec nestjs-api npm install
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm install
 
 # Run the dev server (watch mode)
-docker compose exec nestjs-api npm run start:dev
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run start:dev
 ```
 
 Services:
@@ -45,21 +47,21 @@ All verification and teardown commands run on the **host machine**:
 curl http://localhost:3000
 
 # Verify PostgreSQL is ready (runs inside the db container)
-docker compose exec db pg_isready -U streamtube
+docker compose -f nestjs-project/compose.yaml exec db pg_isready -U streamtube
 
 # Check container logs
-docker compose logs nestjs-api
-docker compose logs db
+docker compose -f nestjs-project/compose.yaml logs nestjs-api
+docker compose -f nestjs-project/compose.yaml logs db
 
 # Tear down the entire environment
-docker compose down
+docker compose -f nestjs-project/compose.yaml down
 ```
 
 ## Commands
 
 **Strict rule:** every `npm`, `npx`, `node`, `tsc`, and test command runs **inside the container**, never on the host. Running on the host causes env-var divergence (`DB_HOST` resolves to `localhost` instead of the Compose service), uses a different Node version, and produces results that do not reflect what runs in CI/prod.
 
-### Container-only commands (always prefix with `docker compose exec nestjs-api`)
+### Container-only commands (always prefix with `docker compose -f nestjs-project/compose.yaml exec nestjs-api`)
 
 ```bash
 npm run start:dev                        # Dev server with hot-reload
@@ -79,9 +81,9 @@ npm run format                           # Prettier formatting
 ### Host-only commands (Docker / connectivity probes)
 
 ```bash
-docker compose ps
-docker compose logs nestjs-api
-docker compose exec db pg_isready -U streamtube
+docker compose -f nestjs-project/compose.yaml ps
+docker compose -f nestjs-project/compose.yaml logs nestjs-api
+docker compose -f nestjs-project/compose.yaml exec db pg_isready -U streamtube
 curl http://localhost:3000
 ```
 
@@ -90,8 +92,8 @@ curl http://localhost:3000
 Integration and e2e suites share a single test database. They **must** be run with `--runInBand`:
 
 ```bash
-docker compose exec nestjs-api npm test -- --runInBand
-docker compose exec nestjs-api npm run test:e2e   # already configured
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm test -- --runInBand
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:e2e   # already configured
 ```
 
 Parallel execution causes FK violations, deadlocks, and cross-suite contamination because suites truncate or seed shared tables concurrently.
