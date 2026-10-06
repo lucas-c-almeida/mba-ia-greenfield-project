@@ -35,6 +35,9 @@ import {
 
 const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
 
+// Every describe block must close the returned module in `afterAll`: that is what
+// releases the Nest container and, with it, the TypeORM DataSource (pg pool) and
+// the mailer transport. Destroying only the DataSource leaks the container.
 async function createAuthTestModule(): Promise<TestingModule> {
   const ds = createTestDataSource(ALL_ENTITIES);
   return Test.createTestingModule({
@@ -93,12 +96,13 @@ async function registerConfirmAndLogin(
 
 describe('AuthService — register (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -106,7 +110,7 @@ describe('AuthService — register (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -184,12 +188,13 @@ describe('AuthService — register (integration)', () => {
 
 describe('AuthService — confirm (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -197,7 +202,7 @@ describe('AuthService — confirm (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -255,18 +260,19 @@ describe('AuthService — confirm (integration)', () => {
 
 describe('AuthService — resendConfirmation (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -308,11 +314,12 @@ describe('AuthService — resendConfirmation (integration)', () => {
 describe('AuthService — login (integration)', () => {
   let authService: AuthService;
   let jwtService: JwtService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     jwtService = module.get(JwtService);
     dataSource = module.get(DataSource);
@@ -320,7 +327,7 @@ describe('AuthService — login (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -387,11 +394,12 @@ describe('AuthService — login (integration)', () => {
 describe('AuthService — refresh (integration)', () => {
   let authService: AuthService;
   let jwtService: JwtService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     jwtService = module.get(JwtService);
     dataSource = module.get(DataSource);
@@ -399,7 +407,7 @@ describe('AuthService — refresh (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -504,18 +512,19 @@ describe('AuthService — refresh (integration)', () => {
 
 describe('AuthService — logout (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     refreshTokenRepository = dataSource.getRepository(RefreshToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -574,18 +583,19 @@ function capturePasswordResetToken(): Promise<string> {
 
 describe('AuthService — forgotPassword (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -655,13 +665,14 @@ describe('AuthService — forgotPassword (integration)', () => {
 
 describe('AuthService — resetPassword (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -670,7 +681,7 @@ describe('AuthService — resetPassword (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
