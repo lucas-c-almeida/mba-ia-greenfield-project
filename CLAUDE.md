@@ -79,6 +79,22 @@ Every change must be tested. During development, run only the tests related to t
 - Focus on the defined scope for each task to ensure clarity and maintainability of the codebase.
 - If you identify a necessary change that is out of scope, create a new issue or task for it instead of including it in the current work.
 
+## Terminal Command Hygiene
+
+Some shell command shapes trigger the harness's human-review (permission) prompt and interrupt the workflow. Agents must avoid them unless strictly necessary:
+
+- **Do not prefix commands with `cd`.** The working directory is already the repository root. Use absolute/relative paths or the tool's own directory flag instead:
+  - `npm --prefix nestjs-project run test` instead of `cd nestjs-project && npm run test`
+  - `npx tsc --noEmit -p nestjs-project` instead of `cd nestjs-project && npx tsc --noEmit`
+  - `git -C <path> ...` instead of `cd <path> && git ...`
+  - `docker compose -f <path>/docker-compose.yml ...` instead of `cd <path> && docker compose ...`
+- **Avoid compound commands** (`&&`, `||`, `;`, pipes) when separate tool calls would do. Independent commands should be issued as parallel tool calls; dependent ones as sequential calls.
+- **Avoid command substitution** (`$(...)`, backticks) and output redirection to files (`>`, `>>`) unless there is no alternative.
+- **Prefer the dedicated tools** over shell equivalents: Read instead of `cat`/`head`/`tail`, Grep instead of `grep`/`rg`, Glob instead of `find`/`ls -R`, Edit/Write instead of `sed`/`echo >`.
+- Write temporary files only to the session scratchpad directory, never outside the project or to system temp folders.
+
+Use `cd` (or any of the shapes above) only when the command genuinely cannot run otherwise — e.g., a tool with no directory flag that depends on the current working directory — and keep it to a single, simple command.
+
 ## Agent Skill Usage
 
 When working on any task (planning, implementing, debugging, refactoring, 
