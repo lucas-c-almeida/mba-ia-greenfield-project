@@ -88,6 +88,15 @@ Whenever a problem is found (bug, tech debt, failing/flaky test, missing validat
 - Check for an existing issue first (`gh issue list --search "<keywords>"`) to avoid duplicates
 - Report the created issue URL(s) to the user at the end of the task
 
+### Closing issues
+
+An issue is resolved once its fix is **merged into `dev`** — close it then, without waiting for the `dev → main` merge.
+
+- GitHub's `Closes #N` / `Fixes #N` keywords only auto-close issues when the PR is merged into the default branch (`main`). PRs targeting `dev` do **not** close their issues automatically
+- Still reference the issue in the PR description (e.g., `Resolves #N`) so the link is visible
+- After the PR is merged into `dev`, close each issue manually with a comment pointing to the PR: `gh issue close <N> --comment "Resolved by #<PR> (merged into dev)"`
+- Do not close an issue while its PR is still open — if asked to, point out the PR is not merged yet and confirm first
+
 ## Terminal Command Hygiene
 
 Some shell command shapes trigger the harness's human-review (permission) prompt and interrupt the workflow. Agents must avoid them unless strictly necessary:
