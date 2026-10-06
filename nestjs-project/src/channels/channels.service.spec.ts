@@ -1,8 +1,14 @@
-import { QueryFailedError } from 'typeorm';
+import { QueryFailedError, type DataSource } from 'typeorm';
 import { ChannelsService } from './channels.service';
 import { Channel } from './entities/channel.entity';
 
-function makeManager(overrides: Record<string, jest.Mock> = {}): any {
+type ManagerMock = {
+  findOne: jest.Mock;
+  create: jest.Mock;
+  save: jest.Mock;
+};
+
+function makeManager(overrides: Partial<ManagerMock> = {}): ManagerMock {
   return {
     findOne: jest.fn(),
     create: jest.fn(),
@@ -31,10 +37,12 @@ function makeUniqueError(): QueryFailedError {
   return new QueryFailedError('INSERT', [], driverError);
 }
 
-function makeDataSource(manager: any): any {
+function makeDataSource(manager: ManagerMock): DataSource {
   return {
-    transaction: jest.fn((cb: (manager: any) => Promise<any>) => cb(manager)),
-  };
+    transaction: jest.fn((cb: (manager: ManagerMock) => Promise<unknown>) =>
+      cb(manager),
+    ),
+  } as unknown as DataSource;
 }
 
 describe('ChannelsService', () => {
