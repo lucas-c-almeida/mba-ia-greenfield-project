@@ -100,6 +100,20 @@ Parallel execution causes FK violations, deadlocks, and cross-suite contaminatio
 
 During active development, run only the tests related to the file being changed (`npm test -- path/to/file.spec.ts`). Before declaring a task done, run the full suite — see the global `CLAUDE.md` → "Definition of Done (Technical)".
 
+### Known harmless test-output warnings
+
+Every Jest process — in both the unit+integration suite and the e2e suite — prints this once:
+
+```
+Warning: `--localstorage-file` was provided without a valid path
+```
+
+It is **harmless** and not a project defect. The origin is Node 25's experimental Web Storage: `jest-environment-node`'s global cleanup (`GlobalProxy.clear`, called from `NodeEnvironment.teardown`) walks the global object and in doing so touches the `localStorage` getter, and Node warns because the process was not started with `--localstorage-file <path>`. It is **not** project code and **not** a misconfigured flag — no occurrence of `localstorage-file` exists anywhere in the repository or in `node_modules`, and `NODE_OPTIONS` is empty in the container.
+
+It is **deliberately not suppressed**. `--no-warnings` (or an equivalent Jest/Node flag) would also hide warnings that do matter — notably the `pg` deprecation tracked in issue #22 — so do not add a suppression flag to silence it.
+
+Observed with Node **v25.6.0** and `jest-environment-node` **30.3.0**; re-check this note if either is upgraded.
+
 ## Long-running Processes
 
 Commands that never exit (dev server, watch modes) must be run in background in the Bash tool — otherwise the agent blocks indefinitely waiting for the process to return.
