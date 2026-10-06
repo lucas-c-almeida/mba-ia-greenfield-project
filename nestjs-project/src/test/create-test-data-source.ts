@@ -1,19 +1,22 @@
-import {
-  DataSource,
-  type DataSourceOptions,
-  type MigrationInterface,
-} from 'typeorm';
+import { DataSource, type DataSourceOptions } from 'typeorm';
+import { ALL_MIGRATIONS } from '../database/all-migrations';
 
 interface TestDataSourceOptions {
-  synchronize?: boolean;
-  migrations?: (new () => MigrationInterface)[];
+  /**
+   * Build the schema by running the project's migrations when the data source
+   * is initialized. Defaults to `true` so integration suites exercise the same
+   * schema path as production. Suites that drive the migration runner
+   * themselves (applying/reverting) pass `false` and call `runMigrations()` on
+   * their own.
+   */
+  runMigrations?: boolean;
 }
 
 export function createTestDataSource(
   entities: NonNullable<DataSourceOptions['entities']>,
   options: TestDataSourceOptions = {},
 ): DataSource {
-  const { synchronize = true, migrations } = options;
+  const { runMigrations = true } = options;
   return new DataSource({
     type: 'postgres',
     host: process.env.DB_HOST ?? 'db',
@@ -22,8 +25,12 @@ export function createTestDataSource(
     password: process.env.DB_PASSWORD ?? 'streamtube',
     database: process.env.DB_NAME ?? 'streamtube',
     entities,
-    synchronize,
-    ...(migrations !== undefined && { migrations, migrationsRun: false }),
+    // Never synchronize: TypeORM's schema builder issues concurrent query()
+    // calls on a single pg client (a DeprecationWarning today, a hard failure
+    // on pg@9) and it is not the schema path production uses.
+    synchronize: false,
+    migrations: ALL_MIGRATIONS,
+    migrationsRun: runMigrations,
   });
 }
 
