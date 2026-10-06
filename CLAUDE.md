@@ -105,7 +105,7 @@ Some shell command shapes trigger the harness's human-review (permission) prompt
   - `npm --prefix nestjs-project run test` instead of `cd nestjs-project && npm run test`
   - `npx tsc --noEmit -p nestjs-project` instead of `cd nestjs-project && npx tsc --noEmit`
   - `git -C <path> ...` instead of `cd <path> && git ...`
-  - `docker compose -f <path>/docker-compose.yml ...` instead of `cd <path> && docker compose ...`
+  - `docker compose -f <path>/<compose-file> ...` instead of `cd <path> && docker compose ...` (the Compose files in this repo are `nestjs-project/compose.yaml` and `next-frontend/compose.yaml`)
 - **Avoid compound commands** (`&&`, `||`, `;`, pipes) when separate tool calls would do. Independent commands should be issued as parallel tool calls; dependent ones as sequential calls.
 - **Avoid command substitution** (`$(...)`, backticks) and output redirection to files (`>`, `>>`) unless there is no alternative.
 - **Prefer the dedicated tools** over shell equivalents: Read instead of `cat`/`head`/`tail`, Grep instead of `grep`/`rg`, Glob instead of `find`/`ls -R`, Edit/Write instead of `sed`/`echo >`.
