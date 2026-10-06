@@ -18,7 +18,7 @@ How each external system is handled in tests. These strategies were confirmed wi
   port: Number(process.env.DB_PORT ?? 5432),
   username: process.env.DB_USERNAME ?? 'streamtube',
   password: process.env.DB_PASSWORD ?? 'streamtube',
-  database: process.env.DB_DATABASE ?? 'streamtube',
+  database: process.env.DB_NAME ?? 'streamtube',
   synchronize: true, // auto-create tables in test setup
 }
 ```
