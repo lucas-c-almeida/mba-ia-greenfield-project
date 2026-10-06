@@ -2,7 +2,7 @@ import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import authConfig from '../config/auth.config';
 import {
@@ -73,7 +73,7 @@ function createMocks() {
 type AuthServiceMocks = ReturnType<typeof createMocks>;
 
 async function buildTestModule(): Promise<
-  AuthServiceMocks & { authService: AuthService }
+  AuthServiceMocks & { module: TestingModule; authService: AuthService }
 > {
   const mocks = createMocks();
   const module = await Test.createTestingModule({
@@ -102,18 +102,28 @@ async function buildTestModule(): Promise<
     ],
   }).compile();
 
-  return { ...mocks, authService: module.get(AuthService) };
+  return { ...mocks, module, authService: module.get(AuthService) };
 }
 
 describe('AuthService — register', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let mailService: AuthServiceMocks['mailService'];
   let verificationTokenRepository: AuthServiceMocks['verificationTokenRepository'];
 
   beforeEach(async () => {
-    ({ authService, usersService, mailService, verificationTokenRepository } =
-      await buildTestModule());
+    ({
+      module,
+      authService,
+      usersService,
+      mailService,
+      verificationTokenRepository,
+    } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('throws EmailAlreadyExistsException when email is already registered', async () => {
@@ -235,13 +245,18 @@ describe('AuthService — register', () => {
 });
 
 describe('AuthService — confirm', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let verificationTokenRepository: AuthServiceMocks['verificationTokenRepository'];
 
   beforeEach(async () => {
-    ({ authService, usersService, verificationTokenRepository } =
+    ({ module, authService, usersService, verificationTokenRepository } =
       await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('marks user as confirmed and token as used for a valid token', async () => {
@@ -296,14 +311,24 @@ describe('AuthService — confirm', () => {
 });
 
 describe('AuthService — resendConfirmation', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let mailService: AuthServiceMocks['mailService'];
   let verificationTokenRepository: AuthServiceMocks['verificationTokenRepository'];
 
   beforeEach(async () => {
-    ({ authService, usersService, mailService, verificationTokenRepository } =
-      await buildTestModule());
+    ({
+      module,
+      authService,
+      usersService,
+      mailService,
+      verificationTokenRepository,
+    } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('returns silently when email is not found', async () => {
@@ -367,6 +392,7 @@ describe('AuthService — resendConfirmation', () => {
 });
 
 describe('AuthService — login', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let refreshTokenRepository: AuthServiceMocks['refreshTokenRepository'];
@@ -377,8 +403,12 @@ describe('AuthService — login', () => {
   });
 
   beforeEach(async () => {
-    ({ authService, usersService, refreshTokenRepository } =
+    ({ module, authService, usersService, refreshTokenRepository } =
       await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('throws InvalidCredentialsException when email is not found', async () => {
@@ -446,6 +476,7 @@ describe('AuthService — login', () => {
 });
 
 describe('AuthService — refresh', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let refreshTokenRepository: AuthServiceMocks['refreshTokenRepository'];
 
@@ -454,7 +485,11 @@ describe('AuthService — refresh', () => {
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
   beforeEach(async () => {
-    ({ authService, refreshTokenRepository } = await buildTestModule());
+    ({ module, authService, refreshTokenRepository } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('throws InvalidTokenException when token is not found', async () => {
@@ -559,11 +594,16 @@ describe('AuthService — refresh', () => {
 });
 
 describe('AuthService — logout', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let refreshTokenRepository: AuthServiceMocks['refreshTokenRepository'];
 
   beforeEach(async () => {
-    ({ authService, refreshTokenRepository } = await buildTestModule());
+    ({ module, authService, refreshTokenRepository } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('revokes all active refresh tokens for the user', async () => {
@@ -592,14 +632,24 @@ describe('AuthService — logout', () => {
 });
 
 describe('AuthService — forgotPassword', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let mailService: AuthServiceMocks['mailService'];
   let verificationTokenRepository: AuthServiceMocks['verificationTokenRepository'];
 
   beforeEach(async () => {
-    ({ authService, usersService, mailService, verificationTokenRepository } =
-      await buildTestModule());
+    ({
+      module,
+      authService,
+      usersService,
+      mailService,
+      verificationTokenRepository,
+    } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('returns silently when email is not registered', async () => {
@@ -652,6 +702,7 @@ describe('AuthService — forgotPassword', () => {
 });
 
 describe('AuthService — resetPassword', () => {
+  let module: TestingModule;
   let authService: AuthService;
   let usersService: AuthServiceMocks['usersService'];
   let verificationTokenRepository: AuthServiceMocks['verificationTokenRepository'];
@@ -659,11 +710,16 @@ describe('AuthService — resetPassword', () => {
 
   beforeEach(async () => {
     ({
+      module,
       authService,
       usersService,
       verificationTokenRepository,
       refreshTokenRepository,
     } = await buildTestModule());
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('throws InvalidTokenException when token is not found', async () => {

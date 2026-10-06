@@ -1,7 +1,7 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 const TEST_SECRET = 'test-secret';
@@ -18,6 +18,7 @@ function makeContext(request: Record<string, unknown>): ExecutionContext {
 }
 
 describe('JwtAuthGuard', () => {
+  let module: TestingModule;
   let guard: JwtAuthGuard;
   let jwtService: JwtService;
   let mockReflector: { getAllAndOverride: jest.Mock };
@@ -25,7 +26,7 @@ describe('JwtAuthGuard', () => {
   beforeAll(async () => {
     mockReflector = { getAllAndOverride: jest.fn() };
 
-    const module = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [
         JwtModule.register({
           secret: TEST_SECRET,
@@ -40,6 +41,10 @@ describe('JwtAuthGuard', () => {
 
     guard = module.get(JwtAuthGuard);
     jwtService = module.get(JwtService);
+  });
+
+  afterAll(async () => {
+    await module.close();
   });
 
   beforeEach(() => {
