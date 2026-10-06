@@ -3,8 +3,7 @@ import { User } from '../users/entities/user.entity';
 import { Channel } from '../channels/entities/channel.entity';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { VerificationToken } from '../auth/entities/verification-token.entity';
-import { CreateUsersAndChannels1775687773260 } from './migrations/1775687773260-CreateUsersAndChannels';
-import { CreateAuthTokens1777579850478 } from './migrations/1777579850478-CreateAuthTokens';
+import { ALL_MIGRATIONS } from './all-migrations';
 import { createTestDataSource } from '../test/create-test-data-source';
 
 const MANAGED_TABLES = [
@@ -18,38 +17,31 @@ describe('Database migrations (integration)', () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
+    // This suite drives the migration runner itself, so it must not have the
+    // schema built for it on initialize.
     dataSource = createTestDataSource(
       [User, Channel, RefreshToken, VerificationToken],
-      {
-        synchronize: false,
-        migrations: [
-          CreateUsersAndChannels1775687773260,
-          CreateAuthTokens1777579850478,
-        ],
-      },
+      { runMigrations: false },
     );
 
     await dataSource.initialize();
 
-    await Promise.all([
-      ...MANAGED_TABLES.map((table) =>
-        dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`),
-      ),
-      dataSource.query(`DROP TABLE IF EXISTS "migrations" CASCADE`),
-    ]);
+    for (const table of [...MANAGED_TABLES, 'migrations']) {
+      await dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`);
+    }
 
-    // DROP TABLE leaves enum types behind. Suites using synchronize may have
-    // created them before this one runs, making the migrations' CREATE TYPE fail.
+    // DROP TABLE leaves enum types behind, so the CREATE TYPE of the auth
+    // tokens migration would fail when re-applying it below.
     const enumTypes = await dataSource.query<{ typname: string }[]>(
       `SELECT t.typname FROM pg_type t
        JOIN pg_namespace n ON n.oid = t.typnamespace
        WHERE n.nspname = 'public' AND t.typtype = 'e'`,
     );
-    await Promise.all(
-      enumTypes.map(({ typname }) =>
-        dataSource.query(`DROP TYPE IF EXISTS "public"."${typname}" CASCADE`),
-      ),
-    );
+    for (const { typname } of enumTypes) {
+      await dataSource.query(
+        `DROP TYPE IF EXISTS "public"."${typname}" CASCADE`,
+      );
+    }
   });
 
   afterAll(async () => {
@@ -62,7 +54,7 @@ describe('Database migrations (integration)', () => {
   it('should apply all migrations and create all four tables', async () => {
     const ranMigrations = await dataSource.runMigrations();
 
-    expect(ranMigrations).toHaveLength(2);
+    expect(ranMigrations).toHaveLength(ALL_MIGRATIONS.length);
 
     const result = await dataSource.query<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.tables
