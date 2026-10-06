@@ -21,6 +21,9 @@ Only start the NestJS dev server (`npm run start:dev`) when the user **explicitl
 This project runs inside Docker. Always use the container for development:
 
 ```bash
+# Create the local .env from the template (first step on a fresh clone)
+cp .env.example .env
+
 # Start containers
 docker compose up -d
 
@@ -135,9 +138,24 @@ MAIL_FROM=StreamTube <noreply@streamtube.local>
 
 # Right — quote the value
 MAIL_FROM="StreamTube <noreply@streamtube.local>"
+
+# Right — when the value itself contains double quotes, wrap it in single quotes
+MAIL_FROM='"StreamTube" <noreply@streamtube.local>'
 ```
 
+The quotes must wrap the **whole** value. Leaving part of it outside (`MAIL_FROM="StreamTube" <noreply@...>`) is accepted by `dotenv` but rejected by Docker Compose, which reads `nestjs-project/.env` for interpolation on every command — so *any* `docker compose ...` call fails with `unexpected character "<" in variable name`.
+
 Whenever possible, prefer storing only the bare address in `.env` and composing display names in code (e.g., in `mail.config.ts`) so the file stays shell-safe.
+
+### Fresh clone
+
+`.env` is git-ignored, so a freshly cloned repository has only `.env.example`. Create it before anything else:
+
+```bash
+cp .env.example .env
+```
+
+Without `.env`, Jest loads no environment (`setupFiles: ["dotenv/config"]` finds nothing) and the suites fail with `secretOrPrivateKey must have a value`.
 
 ## Build Assets
 
