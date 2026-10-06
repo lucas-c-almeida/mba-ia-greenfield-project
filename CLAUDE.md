@@ -75,9 +75,18 @@ Every change must be tested. During development, run only the tests related to t
 
 - Work on **one feature, fix, or refactoring at a time** — do not mix scopes
 - Do not include cosmetic changes (formatting, renaming) alongside functional changes
-- If something out of scope comes up during work, note it as a separate task instead of acting on it
+- If something out of scope comes up during work, do not act on it — open a GitHub issue for it (see [Issue Tracking](#issue-tracking))
 - Focus on the defined scope for each task to ensure clarity and maintainability of the codebase.
-- If you identify a necessary change that is out of scope, create a new issue or task for it instead of including it in the current work.
+
+## Issue Tracking
+
+Whenever a problem is found (bug, tech debt, failing/flaky test, missing validation, doc inconsistency, needed refactor, etc.) and it does not make sense to fix it in the current session — because it is out of scope, too large, or needs a separate decision — **open a GitHub issue immediately** instead of only mentioning it in the conversation or leaving a `TODO` in the code.
+
+- **Issue creation must be delegated to a subagent** (via the Agent tool) — the main thread never runs `gh issue create` itself. Pass the subagent all the context it needs (problem description, file paths/line numbers, reproduction steps, suggested fix), since it starts without the conversation history; it returns the created issue URL
+- The subagent uses the `gh` CLI: `gh issue create --title "<short summary>" --body "<details>"`
+- The body must include: what the problem is, where it was found (file paths/line numbers), how to reproduce or observe it, and any suggested fix or context gathered so far
+- Check for an existing issue first (`gh issue list --search "<keywords>"`) to avoid duplicates
+- Report the created issue URL(s) to the user at the end of the task
 
 ## Terminal Command Hygiene
 
