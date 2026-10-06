@@ -154,7 +154,7 @@ Whenever possible, prefer storing only the bare address in `.env` and composing 
 `.env` is git-ignored, so a freshly cloned repository has only `.env.example`. Create it before anything else:
 
 ```bash
-cp .env.example .env
+cp nestjs-project/.env.example nestjs-project/.env
 ```
 
 Without `.env`, Jest loads no environment (`setupFiles: ["dotenv/config"]` finds nothing) and the suites fail with `secretOrPrivateKey must have a value`.
