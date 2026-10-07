@@ -36,7 +36,7 @@ describe('User entity (integration)', () => {
   beforeAll(async () => {
     dataSource = new DataSource({
       type: 'postgres',
-      host: process.env.DB_HOST ?? 'localhost',
+      host: process.env.DB_HOST ?? 'db',
       port: Number(process.env.DB_PORT ?? 5432),
       username: process.env.DB_USERNAME ?? 'streamtube',
       password: process.env.DB_PASSWORD ?? 'streamtube',

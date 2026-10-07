@@ -23,7 +23,7 @@ Set up the remaining project foundation — TypeORM integration with PostgreSQL,
 **Technical actions:**
 
 - Install `@nestjs/typeorm@^11.0.0`, `typeorm@^0.3.x`, and `pg@^8.x` as production dependencies in nestjs-project
-- Create `src/database/data-source.ts` exporting a `DataSource` instance for the TypeORM CLI — type `postgres`, connection params from environment variables with defaults matching Docker Compose (`host: localhost, port: 5432, username: streamtube, password: streamtube, database: streamtube`), `synchronize: false`, migrations path pointing to `src/database/migrations/*.ts`
+- Create `src/database/data-source.ts` exporting a `DataSource` instance for the TypeORM CLI — type `postgres`, connection params from environment variables with defaults matching Docker Compose (`host: db` — the Docker Compose service name, `port: 5432, username: streamtube, password: streamtube, database: streamtube`), `synchronize: false`, migrations path pointing to `src/database/migrations/*.ts`
 - Configure `TypeOrmModule.forRoot()` in `AppModule` using the same connection parameters as `data-source.ts`, with `autoLoadEntities: true` and `synchronize: false`
 - Add TypeORM CLI scripts to `package.json`: base `"typeorm"` script using `typeorm-ts-node-commonjs`, plus convenience scripts `migration:run`, `migration:revert`, `migration:generate`, and `migration:create` — all pointing to `-d src/database/data-source.ts` where applicable
 
@@ -65,9 +65,9 @@ AppModule is tested implicitly by E2E tests (per testing guide — modules.md §
 **Technical actions:**
 
 - Install `@nestjs/config@^4.x` and `joi@^17.x` as production dependencies in nestjs-project
-- Create `src/config/database.config.ts` — export default a `registerAs('database', () => ({...}))` factory reading `DB_HOST` (string, default `'localhost'`), `DB_PORT` (parsed to number, default `5432`), `DB_USERNAME` (string, default `'streamtube'`), `DB_PASSWORD` (string, default `'streamtube'`), `DB_NAME` (string, default `'streamtube'`) from `process.env`
+- Create `src/config/database.config.ts` — export default a `registerAs('database', () => ({...}))` factory reading `DB_HOST` (string, default `'db'` — the Docker Compose service name), `DB_PORT` (parsed to number, default `5432`), `DB_USERNAME` (string, default `'streamtube'`), `DB_PASSWORD` (string, default `'streamtube'`), `DB_NAME` (string, default `'streamtube'`) from `process.env`
 - Create `src/config/app.config.ts` — export default a `registerAs('app', () => ({...}))` factory reading `PORT` (parsed to number, default `3000`) and `NODE_ENV` (string, default `'development'`) from `process.env`
-- Create `src/config/env.validation.ts` — export a `Joi.object()` schema validating all environment variables: `NODE_ENV` (string, valid: `'development'`, `'production'`, `'test'`, default: `'development'`), `PORT` (number, port, default: `3000`), `DB_HOST` (string, default: `'localhost'`), `DB_PORT` (number, default: `5432`), `DB_USERNAME` (string, required), `DB_PASSWORD` (string, required), `DB_NAME` (string, required)
+- Create `src/config/env.validation.ts` — export a `Joi.object()` schema validating all environment variables: `NODE_ENV` (string, valid: `'development'`, `'production'`, `'test'`, default: `'development'`), `PORT` (number, port, default: `3000`), `DB_HOST` (string, default: `'db'` — the Docker Compose service name), `DB_PORT` (number, default: `5432`), `DB_USERNAME` (string, required), `DB_PASSWORD` (string, required), `DB_NAME` (string, required)
 - Create `.env.example` in `nestjs-project/` root documenting all environment variables with example values matching Docker Compose defaults
 
 **Dependencies:** None

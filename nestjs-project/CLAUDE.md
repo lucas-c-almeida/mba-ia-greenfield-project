@@ -59,7 +59,7 @@ docker compose -f nestjs-project/compose.yaml down
 
 ## Commands
 
-**Strict rule:** every `npm`, `npx`, `node`, `tsc`, and test command runs **inside the container**, never on the host. Running on the host causes env-var divergence (`DB_HOST` resolves to `localhost` instead of the Compose service), uses a different Node version, and produces results that do not reflect what runs in CI/prod.
+**Strict rule:** every `npm`, `npx`, `node`, `tsc`, and test command runs **inside the container**, never on the host. Running on the host breaks service DNS (`DB_HOST=db` and `MAIL_HOST=mailpit` are Compose service names, which only resolve inside the Compose network), uses a different Node version, and produces results that do not reflect what runs in CI/prod.
 
 ### Container-only commands (always prefix with `docker compose -f nestjs-project/compose.yaml exec nestjs-api`)
 
@@ -225,7 +225,7 @@ Conventions for **how to write** each kind of test (mocking patterns, AAA struct
 
 These settings are required in `package.json` (jest config) and `test/jest-e2e.json` for the project's tests to work correctly:
 
-- `setupFiles: ["dotenv/config"]` — without this, `.env` is not loaded inside the Jest process. `DB_HOST`, `JWT_SECRET`, etc. fall back to undefined or to the host's `localhost`, breaking container-to-container DNS.
+- `setupFiles: ["dotenv/config"]` — without this, `.env` is not loaded inside the Jest process. required variables such as `JWT_SECRET` are undefined, and values set in `.env` (e.g., `DB_HOST`, `MAIL_HOST`) are ignored in favor of the in-code defaults (the Compose service names `db` and `mailpit`).
 - `testRegex: '.*\\.(spec|integration-spec)\\.ts$'` — covers both unit (`*.spec.ts`) and integration (`*.integration-spec.ts`) suffixes.
 - `testTimeout: 30000` (in both configs) — bootstrapping modules against the real DB exceeds Jest's 5s default on Docker Desktop (slow bind mount, container clock jumps), failing `beforeAll` hooks.
 - `globalSetup: "<rootDir>/global-setup.ts"` (e2e config only) — builds the database schema by running the project's migrations once, before any e2e spec. The e2e specs boot the real `AppModule`, which uses the production TypeORM config (`synchronize: false`, no `migrationsRun`) and therefore creates nothing; without this hook the e2e suite only passed when a previous `npm test` or a manual `npm run migration:run` had already built the schema. `test/global-setup.ts` reuses `createTestDataSource` (`migrations: ALL_MIGRATIONS` + `migrationsRun: true`), so it is idempotent and never deletes data. It must `import 'dotenv/config'` itself: `setupFiles` does not apply to `globalSetup`.
