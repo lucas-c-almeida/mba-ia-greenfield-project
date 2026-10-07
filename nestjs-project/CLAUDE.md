@@ -148,6 +148,41 @@ It is **deliberately not suppressed**. `--no-warnings` (or an equivalent Jest/No
 
 Observed with Node **v25.6.0** and `jest-environment-node` **30.3.0**; re-check this note if either is upgraded.
 
+## Dependency Audit (`npm audit`)
+
+The findings `npm audit` reports on this lock are **known and accepted**. Do **not** run `npm audit fix --force` to clear them: on this graph `--force` downgrades `jest@30` to `jest@25.0.0` (a 2020 release, five majors back) and `ts-jest` to `29.1.2`, wrecking the test tooling in order to silence advisories in build-time code.
+
+Measured inside the container on **2026-10-06**, on the `dev` lock after `npm ci`:
+
+| Scope                                   | Findings                  |
+|-----------------------------------------|---------------------------|
+| `npm audit`                             | 24 — 23 moderate, 1 high  |
+| `npm audit --omit=dev` (runtime tree)   | 5 — 4 moderate, 1 high    |
+
+Re-measure before quoting these numbers — the count also moves as new advisories are published, with no change to the lock.
+
+### Accepted: the `js-yaml` / `sprintf-js` cluster (the moderates)
+
+Chain: `sprintf-js@1.0.3` → `argparse@1.x` → `js-yaml@3.15.2` → `@istanbuljs/load-nyc-config` → the whole Jest graph. 19 of the 23 moderate entries are Jest/istanbul packages, absent from the runtime tree.
+
+Accepted because:
+
+- they are development dependencies — never shipped to production
+- the YAML they parse is the project's own nyc/coverage config, not untrusted input
+- npm's proposed fix is a downgrade: `jest@25.0.0` / `ts-jest@29.1.2`, flagged `isSemVerMajor: true`
+
+**Revisit when `@istanbuljs/load-nyc-config` moves off `js-yaml@3`**, then reinstall and re-measure.
+
+Note: the same `js-yaml` audit entry also covers the `js-yaml@5.x` bundled under `@nestjs/swagger`, which **is** a runtime dependency and is therefore not part of this acceptance.
+
+### Not handled here: `nodemailer` (the high) — issue #37
+
+Installed version is `nodemailer@9.1.1`; the fix requires `10.x`. The audit JSON reports `fixAvailable: true`, which is **misleading in practice**: `mailparser@3.9.20` pins `"nodemailer": "9.1.1"` exactly and `preview-email@3.4.1` wants `^9.1.1`, so `10.x` is unreachable on this graph — which is why plain `npm audit fix` converges without ever touching it. Those two dependents also account for 2 of the moderate entries. Resolving it means changing the source of the chain, `@nestjs-modules/mailer`, which is the scope of **issue #37**.
+
+### If `npm audit` ever becomes a CI gate
+
+Use `--audit-level=high`. That is the honest option: it fails on the `nodemailer` high and lets the accepted moderates through, instead of pretending they are gone.
+
 ## Long-running Processes
 
 Commands that never exit (dev server, watch modes) must be run in background in the Bash tool — otherwise the agent blocks indefinitely waiting for the process to return.
