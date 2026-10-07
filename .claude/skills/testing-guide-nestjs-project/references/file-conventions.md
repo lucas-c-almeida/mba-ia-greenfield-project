@@ -6,8 +6,8 @@
 
 | Layer | File Pattern | Location | Jest Config |
 |---|---|---|---|
-| **Unit** | `*.spec.ts` | Colocated with source in `src/` | `package.json` → `jest` section (rootDir: `src`, testRegex: `.*\.spec\.ts$`) |
-| **Integration** | `*.integration.spec.ts` | Colocated with source in `src/` | Same config as unit (matched by `.*\.spec\.ts$`) |
+| **Unit** | `*.spec.ts` | Colocated with source in `src/` | `package.json` → `jest` section (rootDir: `src`, testRegex: `.*\.(spec|integration-spec)\.ts$`) |
+| **Integration** | `*.integration-spec.ts` (hyphen before `spec`, never a dot) | Colocated with source in `src/` | Same `jest` section as unit (the two-alternative `testRegex` matches both); `npm run test:integration` selects only these via its own `--testRegex` |
 | **E2E** | `*.e2e-spec.ts` | `test/` directory | `test/jest-e2e.json` (rootDir: `.`, testRegex: `.e2e-spec.ts$`) |
 
 ### Examples
@@ -17,11 +17,11 @@ src/
   users/
     users.service.ts
     users.service.spec.ts              # Unit test
-    users.service.integration.spec.ts  # Integration test
+    users.service.integration-spec.ts  # Integration test
     users.module.ts
     users.module.spec.ts               # Module compilation test
     user.entity.ts
-    user.entity.integration.spec.ts    # Entity integration test
+    user.entity.integration-spec.ts    # Entity integration test
   auth/
     auth.service.ts
     auth.service.spec.ts               # Unit test
@@ -39,8 +39,11 @@ test/
 All commands run inside the Docker container:
 
 ```bash
-# Unit + integration tests (all *.spec.ts in src/)
+# Unit + integration tests (all *.spec.ts and *.integration-spec.ts in src/; not unit-only)
 docker compose -f nestjs-project/compose.yaml exec nestjs-api npm test
+
+# Integration tests only (*.integration-spec.ts; already runs with --runInBand)
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:integration
 
 # Unit + integration tests in watch mode
 docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:watch
@@ -52,8 +55,10 @@ docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:e2e
 docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:cov
 
 # Run specific test file
-docker compose -f nestjs-project/compose.yaml exec nestjs-api npx jest --testPathPattern users.service.spec
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm test -- src/users/users.service.spec.ts
 ```
+
+(If calling Jest directly, the Jest 30 flag is `--testPathPatterns`, plural; the singular `--testPathPattern` is rejected.)
 
 ## Coverage Targets (Thorough)
 
@@ -90,11 +95,13 @@ Add to jest config `coveragePathIgnorePatterns`:
   "jest": {
     "moduleFileExtensions": ["js", "json", "ts"],
     "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "testRegex": ".*\\.(spec|integration-spec)\\.ts$",
     "transform": { "^.+\\.(t|j)s$": "ts-jest" },
     "collectCoverageFrom": ["**/*.(t|j)s"],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "setupFiles": ["dotenv/config"]
   }
 }
 ```
@@ -105,10 +112,15 @@ Add to jest config `coveragePathIgnorePatterns`:
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
+  "testTimeout": 30000,
   "testRegex": ".e2e-spec.ts$",
-  "transform": { "^.+\\.(t|j)s$": "ts-jest" }
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "setupFiles": ["dotenv/config"],
+  "globalSetup": "<rootDir>/global-setup.ts"
 }
 ```
+
+These mirror `nestjs-project/package.json` and `nestjs-project/test/jest-e2e.json`; see `nestjs-project/CLAUDE.md` → "Jest Configuration" for why each option is required.
 
 ## Test Structure
 
