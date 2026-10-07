@@ -128,6 +128,8 @@ _Subprojects in scope:_
 
 ## TD-05: Email Sending Infrastructure
 
+> **Superseded (2026-10-07):** this decision was revised. `@nestjs-modules/mailer` was removed in favor of `nodemailer` + `handlebars` used directly (`nestjs-project/src/mail/`) — see issue #37 and PR #56. The text below is kept as a record of what was originally decided.
+
 **Scope:** Backend
 
 **Capability:** Serviço de envio de e-mails transacionais
@@ -302,6 +304,8 @@ _Subprojects in scope:_
 ---
 
 ## Decisions Summary
+
+> **Note (2026-10-07):** TD-05 below is **superseded** — `@nestjs-modules/mailer` was removed in favor of `nodemailer` + `handlebars` used directly (issue #37, PR #56). The row is kept as originally decided.
 
 | ID | Decision | Recommendation | Choice |
 |----|----------|---------------|--------|

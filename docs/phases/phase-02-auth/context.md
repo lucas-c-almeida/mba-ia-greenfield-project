@@ -45,7 +45,7 @@ sources_mtime:
 | phase-02-auth/TD-02 | technical-decisions-phase-02-auth.md | Backend | Auth Library Approach | decided | B (Custom guards with @nestjs/jwt only) | @nestjs/jwt@^11.0.0 |
 | phase-02-auth/TD-03 | technical-decisions-phase-02-auth.md | Backend | Refresh Token Strategy | decided | A (Refresh Token Rotation) | — |
 | phase-02-auth/TD-04 | technical-decisions-phase-02-auth.md | Backend | Email Confirmation & Password Reset Tokens | decided | B (Random Opaque Tokens in Database) | — |
-| phase-02-auth/TD-05 | technical-decisions-phase-02-auth.md | Backend | Email Sending Infrastructure | decided | A (@nestjs-modules/mailer) | @nestjs-modules/mailer@^2.x, handlebars@^4.x |
+| phase-02-auth/TD-05 | technical-decisions-phase-02-auth.md | Backend | Email Sending Infrastructure | decided | A (@nestjs-modules/mailer) — superseded 2026-10-07 by nodemailer + handlebars used directly (issue #37, PR #56) | nodemailer@^10.x, handlebars@^4.x |
 | phase-02-auth/TD-06 | technical-decisions-phase-02-auth.md | Backend | Request Validation Library | decided | A (class-validator + class-transformer) | class-validator@^0.14.x, class-transformer@^0.5.x |
 | phase-02-auth/TD-07 | technical-decisions-phase-02-auth.md | Cross-layer | Error Response Standardization | decided | A (Custom Domain Exception Filter) | — |
 | phase-02-auth/TD-08 | technical-decisions-phase-02-auth.md | Backend | Rate Limiting Strategy | decided | A (@nestjs/throttler) | @nestjs/throttler@^6.x |
@@ -99,9 +99,9 @@ _Source files:_
 
 ### phase-02-auth/TD-05
 
-**Recommendation:** Option A (@nestjs-modules/mailer) — Best NestJS integration with minimal boilerplate. Supports SMTP (matching the architecture diagram), works with MailHog/Mailpit for local development without external dependencies, and scales to any SMTP provider in production. Template engine support (Handlebars) simplifies email formatting. No vendor lock-in.
+**Recommendation:** `nodemailer` + `handlebars` used directly, wrapped in a custom `MailModule` (`src/mail/`). The original TD-05 decision (Option A, `@nestjs-modules/mailer`) was superseded — the wrapper was removed in issue #37 / PR #56 (see the superseded note in `technical-decisions-phase-02-auth.md`). Supports SMTP (matching the architecture diagram), works with MailHog/Mailpit for local development without external dependencies, and scales to any SMTP provider in production. Handlebars templates simplify email formatting. No vendor lock-in.
 
-**Libraries:** `@nestjs-modules/mailer@^2.x`, `handlebars@^4.x`
+**Libraries:** `nodemailer@^10.x`, `handlebars@^4.x`
 
 ### phase-02-auth/TD-06
 

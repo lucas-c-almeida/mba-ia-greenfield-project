@@ -23,7 +23,7 @@ Deliver the complete authentication lifecycle — registration with automatic ch
 
 **Technical actions:**
 
-- Install production dependencies in nestjs-project: `argon2@^0.41.x`, `@nestjs/jwt@^11.0.0`, `@nestjs-modules/mailer@^2.x`, `handlebars@^4.x`, `@nestjs/throttler@^6.x`, `class-validator@^0.14.x`, `class-transformer@^0.5.x`
+- Install production dependencies in nestjs-project: `argon2@^0.41.x`, `@nestjs/jwt@^11.0.0`, `nodemailer@^10.x`, `handlebars@^4.x`, `@nestjs/throttler@^6.x`, `class-validator@^0.14.x`, `class-transformer@^0.5.x`
 - Create `src/config/auth.config.ts` — `registerAs('auth', ...)` reading `JWT_SECRET` (string, required — used for access tokens), `JWT_REFRESH_SECRET` (string, required — separate secret for refresh tokens), `JWT_ACCESS_EXPIRATION` (string, default `'15m'`), `JWT_REFRESH_EXPIRATION` (string, default `'7d'`), `CONFIRMATION_TOKEN_EXPIRATION_HOURS` (number, default `1`), `PASSWORD_RESET_TOKEN_EXPIRATION_HOURS` (number, default `1`)
 - Create `src/config/mail.config.ts` — `registerAs('mail', ...)` reading `MAIL_HOST` (string, default `'mailpit'`), `MAIL_PORT` (number, default `1025`), `MAIL_FROM` (string, default `'"StreamTube" <noreply@streamtube.com>'`)
 - Update `src/config/env.validation.ts` — add all new environment variables to the Joi schema (`JWT_SECRET` and `JWT_REFRESH_SECRET` required, others with defaults). Update `.env.example` with all new variables and Docker Compose-compatible defaults
@@ -128,12 +128,16 @@ Deliver the complete authentication lifecycle — registration with automatic ch
 
 ### SI-02.5 — Mail Module and Email Templates
 
-**Description:** Configure `@nestjs-modules/mailer` with Handlebars templates via `MailerModule.forRootAsync`, create a `MailService` that wraps email sending with typed methods, and add Handlebars templates for confirmation and password reset emails.
+**Description:** Build the mail layer directly on `nodemailer` (SMTP transport) and `handlebars` (template rendering) — no NestJS mailer wrapper package (the originally planned `@nestjs-modules/mailer` was removed, see `docs/decisions/technical-decisions-phase-02-auth.md` → TD-05 superseded note, issue #37 and PR #56). Create a `MailService` that wraps email sending with typed methods, and add Handlebars templates for confirmation and password reset emails.
 
 **Technical actions:**
 
-- Create `src/mail/mail.module.ts` — import `MailerModule.forRootAsync` with `inject: [mailConfig.KEY]`, configure SMTP transport using `mail.host` and `mail.port` from `mailConfig`, set `defaults.from` from `mailConfig`, configure `HandlebarsAdapter` with template directory `join(__dirname, 'templates')` and `options: { strict: true }`
-- Create `src/mail/mail.service.ts` — `MailService` injecting `MailerService`. Implement `sendConfirmationEmail(email: string, name: string, token: string): Promise<void>` — sends to `email` using template `'confirmation'` with context `{ name, confirmationUrl }` where `confirmationUrl` is built from a base URL + token. Implement `sendPasswordResetEmail(email: string, name: string, token: string): Promise<void>` — sends using template `'password-reset'` with context `{ name, resetUrl }`
+- Create `src/mail/mail.constants.ts` — the `MAIL_TRANSPORT` injection token (a `Symbol`), `MAIL_TEMPLATES` (`CONFIRMATION: 'confirmation'`, `PASSWORD_RESET: 'password-reset'`) and `MAIL_SUBJECTS` (the subject line of each email), all `as const`
+- Create `src/mail/mail.transport.ts` — `mailTransportProvider`, a provider for the `MAIL_TRANSPORT` token that injects `mailConfig.KEY` and builds a single shared nodemailer `Transporter` with `createTransport({ host: mail.host, port: mail.port }, { from: mail.from })`; `from` is registered as a transport default so every message inherits `MAIL_FROM`
+- Create `src/mail/mail-template.service.ts` — `MailTemplateService` with `render(template: string, context: Record<string, unknown>): string`. It reads `join(__dirname, 'templates', '<template>.hbs')` from disk, compiles it with Handlebars `compile(source, { strict: true })` (a missing context property fails loudly instead of rendering an empty string) and caches the compiled delegate per template name
+- Create `src/mail/mail.module.ts` — `MailModule` with providers `[mailTransportProvider, MailTemplateService, MailService]`, exporting only `MailService`
+- Create `src/mail/mail.service.ts` — `MailService` injecting the `MAIL_TRANSPORT` `Transporter`, `MailTemplateService` and `appConfig` (for `app.url`). Implement `sendConfirmationEmail(email: string, name: string, token: string): Promise<void>` — calls `transporter.sendMail` to `email` with the confirmation subject and the `'confirmation'` template rendered with context `{ name, confirmationUrl }`, where `confirmationUrl` is `${appUrl}/auth/confirm-email?token=${token}`. Implement `sendPasswordResetEmail(email: string, name: string, token: string): Promise<void>` — same flow with the `'password-reset'` template and context `{ name, resetUrl }`, where `resetUrl` is `${appUrl}/auth/reset-password?token=${token}`
+- Declare the templates as a build asset in `nest-cli.json` (`compilerOptions.assets`: `mail/templates/**/*.hbs`, with `watchAssets`), otherwise the `.hbs` files are missing from `dist/`
 - Create `src/mail/templates/confirmation.hbs` — Handlebars template with user greeting by `name` and a clickable confirmation link using `confirmationUrl`
 - Create `src/mail/templates/password-reset.hbs` — Handlebars template with user greeting by `name`, a clickable reset link using `resetUrl`, and an expiry notice
 
@@ -142,7 +146,7 @@ Deliver the complete authentication lifecycle — registration with automatic ch
 | File | Layer | Verifies |
 |------|-------|----------|
 | `src/mail/mail.service.integration-spec.ts` | Integration | `sendConfirmationEmail` delivers to Mailpit with correct subject, recipient, and template-rendered body; `sendPasswordResetEmail` delivers with correct content |
-| `src/mail/mail.module.spec.ts` | Unit | Module compiles with MailerModule.forRootAsync wiring |
+| `src/mail/mail.module.spec.ts` | Unit | `MailModule` compiles with the mail transport, `MailTemplateService` and `MailService` wiring |
 
 **Dependencies:** SI-02.1
 

@@ -98,9 +98,9 @@ _Source files:_
 
 ### phase-02-auth/TD-05
 
-**Recommendation:** Option A (@nestjs-modules/mailer) — Best NestJS integration with minimal boilerplate. Supports SMTP (matching the architecture diagram), works with MailHog/Mailpit for local development without external dependencies, and scales to any SMTP provider in production. Template engine support (Handlebars) simplifies email formatting. No vendor lock-in.
+**Recommendation:** `nodemailer` + `handlebars` used directly, wrapped in a custom `MailModule` (`src/mail/`). The original TD-05 decision (Option A, `@nestjs-modules/mailer`) was superseded — the wrapper was removed in issue #37 / PR #56 (see the superseded note in `technical-decisions-phase-02-auth.md`). Supports SMTP (matching the architecture diagram), works with MailHog/Mailpit for local development without external dependencies, and scales to any SMTP provider in production. Handlebars templates simplify email formatting. No vendor lock-in.
 
-**Libraries:** `@nestjs-modules/mailer@^2.x`, `handlebars@^4.x`
+**Libraries:** `nodemailer@^10.x`, `handlebars@^4.x`
 
 ### phase-02-auth/TD-06
 
