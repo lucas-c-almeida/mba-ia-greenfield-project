@@ -49,18 +49,20 @@ afterAll(async () => {
 
 ## Importing Migrations in Tests
 
-`ts-jest` does not reliably resolve TypeORM's glob patterns (`migrations: ['dist/migrations/*.js']`) inside the Jest sandbox. For a test `DataSource`, **import the migration classes directly** and pass them as an array:
+`ts-jest` does not reliably resolve TypeORM's glob patterns (`migrations: ['dist/migrations/*.js']`) inside the Jest sandbox, so migration classes must be imported directly and passed as an array. That list is **not** duplicated per data source: `src/database/all-migrations.ts` exports `ALL_MIGRATIONS` as the single authoritative, ordered list, consumed both by the runtime `src/database/data-source.ts` (which the `migration:*` CLI scripts use) and by `createTestDataSource`:
 
 ```typescript
-import { CreateUsersAndChannels1775687773260 } from '../src/database/migrations/1775687773260-CreateUsersAndChannels';
+import { ALL_MIGRATIONS } from '../database/all-migrations';
 
 new DataSource({
   // ...
-  migrations: [CreateUsersAndChannels1775687773260, CreateAuthTokens1777579850478],
+  migrations: ALL_MIGRATIONS,
 });
 ```
 
-The runtime `data-source.ts` can keep the glob — only test data sources need explicit imports.
+Every new migration must be added to `ALL_MIGRATIONS` — otherwise the integration suites build an outdated schema. `src/database/all-migrations.spec.ts` enforces this by comparing the list against the files in `src/database/migrations/` (names and order), so a forgotten registration fails the suite instead of failing mysteriously later.
+
+Do not use a migrations glob in any data source, and keep `all-migrations.ts` outside `migrations/` — that guard test treats every file in `migrations/` as a migration.
 
 ## Test DataSource Entity Arrays
 
@@ -73,6 +75,6 @@ new DataSource({
 });
 ```
 
-Glob entries (`'src/**/*.entity.ts'`) work in production via `ts-node` but break in `ts-jest` — explicit class arrays are the only reliable form in test data sources. The runtime `data-source.ts` can keep the glob.
+Glob entries (`'src/**/*.entity.ts'`) work in production via `ts-node` but break in `ts-jest` — explicit class arrays are the only reliable form in test data sources. The runtime `data-source.ts` keeps the **entities** glob on purpose: unlike a migration array it cannot go stale when a new entity is added, and a forgotten entity would make `migration:generate` emit a wrong diff instead of failing.
 
 For TypeORM **query** pitfalls (`IsNull`, transactions, SAVEPOINT) that apply in service code, see `typeorm-queries.md`.
