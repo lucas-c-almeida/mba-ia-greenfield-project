@@ -43,15 +43,24 @@ beforeAll(async () => {
 
   app = moduleFixture.createNestApplication();
 
-  // Reproduce main.ts config
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-  // app.useGlobalFilters(new DomainExceptionFilter());
-  // app.useGlobalInterceptors(new ResponseTransformInterceptor());
-  // app.setGlobalPrefix('api');
+  // Reproduce src/main.ts config — keep this block in sync with it
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+  app.useGlobalFilters(
+    new DomainExceptionFilter(),
+    new ValidationExceptionFilter(),
+  );
 
   await app.init();
 });
 ```
+
+That is exactly what `test/auth.e2e-spec.ts` and `test/swagger.e2e-spec.ts` do — copy it from there rather than from memory, and re-check `src/main.ts` whenever a new global pipe, filter or interceptor is added. Dropping `forbidNonWhitelisted` alone already changes the status code an unknown property produces, so the test would assert something production never returns.
 
 **Tip:** Extract global config into a shared function used by both `main.ts` and E2E setup to keep them in sync.
 
@@ -86,20 +95,26 @@ If Jest still hangs, find the handle that is actually holding the event loop —
 
 ---
 
-## 5. TypeORM `synchronize: true` in tests creates tables but doesn't reset
+## 5. The test schema is built by migrations — `synchronize` is not an option
 
-**Problem:** `synchronize: true` creates tables if they don't exist and adds new columns, but it does NOT drop tables or remove columns. If you rename a column in an entity, the old column persists in the test DB.
+**Problem:** `synchronize` looks like the shortcut to get tables into the test database, but it is unavailable here and unsafe anyway. It creates tables and adds columns, yet never drops a table or removes a column — rename a column in an entity and the old one survives in the test DB. It also diverges from the schema path production uses, so a broken migration still passes. And TypeORM's schema builder issues concurrent `query()` calls on a single `pg` client: a `DeprecationWarning` today, a hard failure on `pg@9` (the `pg` deprecation tracked in issue #22).
 
-**Fix:** For a clean slate, either:
-- Drop and recreate the test database before the test suite
-- Use `dataSource.synchronize(true)` which drops all tables and recreates (destructive — only in tests)
+**Fix:** Build the test schema by running the project's own migrations, via the shared helper `nestjs-project/src/test/create-test-data-source.ts`. `createTestDataSource` pins `synchronize: false` and initializes with `migrations: ALL_MIGRATIONS` (`src/database/all-migrations.ts`) plus `migrationsRun`, so there is no code path that accepts `synchronize: true`:
 
 ```typescript
+import { createTestDataSource } from '../test/create-test-data-source';
+
+const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
+
 beforeAll(async () => {
-  await dataSource.initialize();
-  await dataSource.synchronize(true); // drop + recreate all tables
+  dataSource = createTestDataSource(ALL_ENTITIES);
+  await dataSource.initialize(); // runs ALL_MIGRATIONS and builds the schema
 });
 ```
+
+Pass `{ runMigrations: false }` only when the suite drives the migration runner itself (as `src/database/migrations.integration-spec.ts` does) — such a suite must restore the schema in `afterAll`: see `.claude/rules/typeorm-migrations.md` → "Migration Tests Must Restore DB State".
+
+Every new migration has to be added to `ALL_MIGRATIONS`, or the integration suites silently build an outdated schema. To reset *data* between tests, never rebuild the schema — use `cleanAllTables(dataSource)` from the same helper, or the `DELETE FROM` / `TRUNCATE ... CASCADE` patterns of §1.
 
 ---
 
@@ -130,8 +145,10 @@ await dataSource.query(`DELETE FROM "${tableName}"`);
 
 **Rule of thumb:**
 - **E2E** (`*.e2e-spec.ts`): `imports: [AppModule]` → full app, real HTTP stack
-- **Integration** (`*.integration.spec.ts`): `imports: [TypeOrmModule.forRoot(...), TypeOrmModule.forFeature([Entity])]` + specific providers
+- **Integration** (`*.integration-spec.ts`): `imports: [TypeOrmModule.forRoot(...), TypeOrmModule.forFeature([Entity])]` + specific providers
 - **Unit** (`*.spec.ts`): `providers: [ServiceUnderTest, { provide: Dep, useValue: mock }]` — no module imports
+
+The integration suffix is spelled with a **hyphen** before `spec`, never a dot: Jest's `testRegex` is `.*\.(spec|integration-spec)\.ts$`, so a file named `*.integration.spec.ts` is still collected (it ends in `.spec.ts`) but runs in parallel like a unit test, and `npm run test:integration` — whose own regex is `\.integration-spec\.ts$` — never selects it at all. See `nestjs-project/CLAUDE.md` → "Test Type Selection".
 
 ---
 
@@ -159,9 +176,14 @@ jest.mock('./users.service');
 - Use transactions that rollback after each test (if feasible)
 - Use schema-per-test-file isolation (complex but fully parallel)
 
-For the `npm test` command, consider adding `--runInBand` when running integration tests:
+The project already has a dedicated script for this — `npm run test:integration`, which selects only `*.integration-spec.ts` and is already `--runInBand`. Like every `npm`/`npx` command here, it runs inside the container (see `nestjs-project/CLAUDE.md` → "Commands"):
 ```bash
-npx jest --testPathPattern integration --runInBand
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm run test:integration
+```
+
+The full unit + integration run needs the flag passed explicitly, since `npm test` has none of its own:
+```bash
+docker compose -f nestjs-project/compose.yaml exec nestjs-api npm test -- --runInBand
 ```
 
 ---
@@ -182,14 +204,19 @@ This matches the existing `test/app.e2e-spec.ts` pattern and ensures type compat
 
 ---
 
-## 11. Bcrypt in tests — use lower cost factor
+## 11. Password hashing in tests — the project uses argon2, and it is never mocked
 
-**Problem:** `bcrypt.hash()` with the default cost factor (10-12) is intentionally slow. Running many tests that hash passwords slows down the suite significantly.
+**Problem:** Password hashing is intentionally slow, so a suite that hashes on every test case gets noticeably slower. The tempting shortcuts are mocking the hashing library or weakening its parameters.
 
-**Fix:** Use a lower cost factor in test environment:
+**Fix:** Neither. The project hashes with **argon2** (`argon2.hash` / `argon2.verify` in `src/auth/auth.service.ts`) at the library's default parameters — there is no `bcrypt` dependency and no cost-factor constant to turn down. Keep calling the real library: `auth.service.spec.ts` asserts the produced hash actually starts with `$argon2`, and `auth.service.integration-spec.ts` verifies a stored hash with `argon2.verify` — both assertions are meaningless against a mock.
+
+Pay for the hash once per describe block instead of once per test:
 ```typescript
-const SALT_ROUNDS = process.env.NODE_ENV === 'test' ? 1 : 12;
-await bcrypt.hash(password, SALT_ROUNDS);
+let hashedTestPassword: string;
+
+beforeAll(async () => {
+  hashedTestPassword = await argon2.hash('correctpassword');
+});
 ```
 
-Do NOT mock bcrypt — a lower cost factor is safe for tests and still exercises the real hashing code path.
+This is the pattern `src/auth/auth.service.spec.ts` already uses for its login suite.
