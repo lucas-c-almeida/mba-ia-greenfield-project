@@ -1,3 +1,5 @@
+export const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
+
 export const MAIL_TEMPLATES = {
   CONFIRMATION: 'confirmation',
   PASSWORD_RESET: 'password-reset',

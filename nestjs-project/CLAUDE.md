@@ -123,16 +123,16 @@ To debug a failing spec, `npm run test:debug` runs the same unit+integration sel
 
 ### Open handles false positive (`--detectOpenHandles`)
 
-Running the suite with `--detectOpenHandles` always reports a `CustomGC` open handle blaming `src/mail/mail.module.ts` — the `HandlebarsAdapter` import, which pulls in the native `@css-inline/css-inline`.
+Historically `--detectOpenHandles` always reported a `CustomGC` open handle blaming `src/mail/mail.module.ts`: a napi-rs custom-GC async resource from the native `@css-inline/css-inline`, pulled in by `@nestjs-modules/mailer`'s `HandlebarsAdapter`. It never held the event loop — napi-rs's resource does not expose `hasRef()`, so Jest listed it unconditionally.
 
-**It is a false positive.** That handle is napi-rs's custom-GC async resource, which does not expose `hasRef()`, so Jest cannot check whether it holds the event loop and lists it unconditionally. Proof that it is unref'd:
+That package left the tree when the mail layer moved to `nodemailer` + `handlebars` directly (issue #37), and the handle is gone with it:
 
 ```bash
-docker compose -f nestjs-project/compose.yaml exec -T nestjs-api node -e 'require("@css-inline/css-inline"); console.log(JSON.stringify(process.getActiveResourcesInfo()))'
-# → [] with exit 0 — after loading the package Node has no active resources at all
+docker compose -f nestjs-project/compose.yaml exec -T nestjs-api npm test -- --runInBand --detectOpenHandles src/mail
+# → 2 suites / 6 tests passing, no open handles reported
 ```
 
-So this handle is never why a run would hang: the suite exits on its own and `--forceExit` is **not** needed. If a run really does hang, ignore this handle and look for the cause elsewhere.
+The conclusion that outlives the handle: `--forceExit` is **not** needed. The suite exits on its own, so if a run really does hang, look for a handle that genuinely holds the loop instead of masking it.
 
 ### Known harmless test-output warnings
 
@@ -152,18 +152,18 @@ Observed with Node **v25.6.0** and `jest-environment-node` **30.3.0**; re-check 
 
 The findings `npm audit` reports on this lock are **known and accepted**. Do **not** run `npm audit fix --force` to clear them: on this graph `--force` downgrades `jest@30` to `jest@25.0.0` (a 2020 release, five majors back) and `ts-jest` to `29.1.2`, wrecking the test tooling in order to silence advisories in build-time code.
 
-Measured inside the container on **2026-10-06**, on the `dev` lock after `npm ci`:
+Measured inside the container on **2026-10-07**, on the lock after `npm ci`:
 
 | Scope                                   | Findings                  |
 |-----------------------------------------|---------------------------|
-| `npm audit`                             | 24 — 23 moderate, 1 high  |
-| `npm audit --omit=dev` (runtime tree)   | 5 — 4 moderate, 1 high    |
+| `npm audit`                             | 21 — 21 moderate, 0 high  |
+| `npm audit --omit=dev` (runtime tree)   | 2 — 2 moderate, 0 high    |
 
 Re-measure before quoting these numbers — the count also moves as new advisories are published, with no change to the lock.
 
 ### Accepted: the `js-yaml` / `sprintf-js` cluster (the moderates)
 
-Chain: `sprintf-js@1.0.3` → `argparse@1.x` → `js-yaml@3.15.2` → `@istanbuljs/load-nyc-config` → the whole Jest graph. 19 of the 23 moderate entries are Jest/istanbul packages, absent from the runtime tree.
+Chain: `sprintf-js@1.0.3` → `argparse@1.x` → `js-yaml@3.15.2` → `@istanbuljs/load-nyc-config` → the whole Jest graph. 19 of the 21 moderate entries are Jest/istanbul packages, absent from the runtime tree.
 
 Accepted because:
 
@@ -175,13 +175,17 @@ Accepted because:
 
 Note: the same `js-yaml` audit entry also covers the `js-yaml@5.x` bundled under `@nestjs/swagger`, which **is** a runtime dependency and is therefore not part of this acceptance.
 
-### Not handled here: `nodemailer` (the high) — issue #37
+### Resolved: `nodemailer` (the former high) — issue #37
 
-Installed version is `nodemailer@9.1.1`; the fix requires `10.x`. The audit JSON reports `fixAvailable: true`, which is **misleading in practice**: `mailparser@3.9.20` pins `"nodemailer": "9.1.1"` exactly and `preview-email@3.4.1` wants `^9.1.1`, so `10.x` is unreachable on this graph — which is why plain `npm audit fix` converges without ever touching it. Those two dependents also account for 2 of the moderate entries. Resolving it means changing the source of the chain, `@nestjs-modules/mailer`, which is the scope of **issue #37**.
+The single `high` used to be `nodemailer@9.1.1`, unreachable to fix because `mailparser@3.9.20` pinned `"nodemailer": "9.1.1"` exactly and `preview-email@3.4.1` wanted `^9.1.1` — both reachable only through `@nestjs-modules/mailer`'s optional dependencies.
+
+Omitting those optional dependencies is **not** a usable workaround: `npm` only omits optional dependencies wholesale (`--omit=optional`), and that also drops the platform binary of `@css-inline/css-inline`, a non-optional dependency of `@nestjs-modules/mailer` that ships its native build through its own `optionalDependencies`. The mailer then fails to load at all.
+
+So `@nestjs-modules/mailer` was dropped and the mail layer now uses `nodemailer` + `handlebars` directly (`src/mail/`). `nodemailer` is a direct dependency at `10.x`, and `mjml`, `liquidjs`, `preview-email`, `mailparser`, `pug`, `html-to-text`, `svgo` and `@css-inline/css-inline` left the tree with it.
 
 ### If `npm audit` ever becomes a CI gate
 
-Use `--audit-level=high`. That is the honest option: it fails on the `nodemailer` high and lets the accepted moderates through, instead of pretending they are gone.
+Use `--audit-level=high`. That is the honest option: it passes today and still fails the moment a `high` appears, instead of pretending the accepted moderates are gone.
 
 ## Long-running Processes
 
