@@ -185,9 +185,15 @@ Use `--audit-level=high`. That is the honest option: it fails on the `nodemailer
 
 ## Long-running Processes
 
-Commands that never exit (dev server, watch modes) must be run in background in the Bash tool — otherwise the agent blocks indefinitely waiting for the process to return.
+Commands that never exit (dev server, watch modes, the Node inspector) must be run in background in the Bash tool — otherwise the agent blocks indefinitely waiting for the process to return.
 
-This applies to: `start:dev`, `start:prod`, `test:watch`, and any other persistent process.
+This applies to: `start`, `start:dev`, `start:debug`, `start:prod`, `test:watch`, `test:debug`, and any other persistent process.
+
+Why each one never returns:
+
+- `start`, `start:dev`, `start:debug`, `start:prod` — they boot the HTTP server, which keeps listening; `start:dev` and `start:debug` additionally stay up in watch mode
+- `test:watch` — Jest watch mode, which stays up waiting for file changes
+- `test:debug` — not a watch mode: `--inspect-brk` halts before the first line and waits for a debugger to attach (details in "Test execution")
 
 ## Test Type Selection
 
