@@ -1,0 +1,19 @@
+# Line endings: pinned only where CRLF actually breaks execution.
+#
+# These files are executed or parsed by Linux/POSIX tooling (shell, Docker,
+# Docker Compose). A CRLF shell script dies with "\r: command not found" --
+# an error message that explains nothing -- and a CRLF Dockerfile corrupts
+# backslash line continuations and shell-form RUN/CMD. Pinning eol=lf makes
+# the working-tree copy LF on every clone and checkout, independently of each
+# developer's local core.autocrlf.
+#
+# Deliberately NOT here: a blanket `* text=auto`. It was considered and
+# rejected (issue #40). Its first commit renormalizes every tracked file,
+# which is a large diff that must be its own deliberate change, and for the
+# rest of the repo the benefit is cosmetic. Do not "complete" this file by
+# adding it -- reopen that decision first.
+
+*.sh                 text eol=lf
+Dockerfile*          text eol=lf
+compose*.y*ml        text eol=lf
+docker-compose*.y*ml text eol=lf
