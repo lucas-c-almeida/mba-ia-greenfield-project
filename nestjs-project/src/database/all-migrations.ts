@@ -1,4 +1,5 @@
 import type { MigrationInterface } from 'typeorm';
+import { EnableUuidOsspExtension1775687773259 } from './migrations/1775687773259-EnableUuidOsspExtension';
 import { CreateUsersAndChannels1775687773260 } from './migrations/1775687773260-CreateUsersAndChannels';
 import { CreateAuthTokens1777579850478 } from './migrations/1777579850478-CreateAuthTokens';
 
@@ -21,6 +22,7 @@ import { CreateAuthTokens1777579850478 } from './migrations/1777579850478-Create
  * that guard test treats every file in `migrations/` as one.
  */
 export const ALL_MIGRATIONS: (new () => MigrationInterface)[] = [
+  EnableUuidOsspExtension1775687773259,
   CreateUsersAndChannels1775687773260,
   CreateAuthTokens1777579850478,
 ];

@@ -22,6 +22,7 @@ description: 'Database migration safety rules'
 - Never use `synchronize: true` in any environment — migrations are the only sanctioned way to change the schema
 - Test migrations against a fresh database before considering them done
 - Migrations must be idempotent where possible — use `IF EXISTS` / `IF NOT EXISTS` guards for DDL
+- Migrations must be self-sufficient: never rely on the TypeORM Postgres driver enabling `uuid-ossp` from entity metadata. `EnableUuidOsspExtension1775687773259` creates it and carries a timestamp one millisecond **before** `CreateUsersAndChannels1775687773260` on purpose (TypeORM runs pending migrations in timestamp order, and the old migration is immutable). A new migration that needs a Postgres extension must create it itself; `migrations-standalone.integration-spec.ts` runs every migration on a fresh database with no entities to catch regressions
 
 ## Recovering from `synchronize` Residue
 
