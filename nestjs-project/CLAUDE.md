@@ -63,17 +63,21 @@ docker compose -f nestjs-project/compose.yaml down
 
 ### Container-only commands (always prefix with `docker compose -f nestjs-project/compose.yaml exec nestjs-api`)
 
+Commands marked `(long-running)` never return on their own — run them in the background, never in the foreground. See [Long-running Processes](#long-running-processes).
+
 ```bash
-npm run start:dev                        # Dev server with hot-reload
+npm run start                            # Server without watch  (long-running)
+npm run start:dev                        # Dev server with hot-reload  (long-running)
+npm run start:debug                      # Dev server + Node inspector  (long-running)
 npm run build                            # Compile to dist/
-npm run start:prod                       # Run compiled build
+npm run start:prod                       # Run compiled build  (long-running)
 
 npm test                                 # Unit + integration tests (testRegex matches both)
 npm run test:integration                 # Integration tests only (already with --runInBand)
-npm run test:watch                       # Unit + integration tests in watch mode
+npm run test:watch                       # Unit + integration tests in watch mode  (long-running)
 npm run test:cov                         # Coverage report over unit + integration
 npm run test:e2e                         # End-to-end tests (always with --runInBand)
-npm run test:debug                       # Unit + integration under the Node inspector
+npm run test:debug                       # Unit + integration under the Node inspector  (long-running: waits for a debugger)
 
 npx tsc --noEmit                         # Type-check (required before declaring a task done)
 npm run lint                             # ESLint with auto-fix
