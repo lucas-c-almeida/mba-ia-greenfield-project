@@ -24,29 +24,39 @@ export const AppDataSource = new DataSource({
 **Correct (migration-based workflow):**
 
 ```typescript
-// data-source.ts
+// src/database/data-source.ts
 export const AppDataSource = new DataSource({
   // ...
-  synchronize: process.env.NODE_ENV === 'development', // true in dev, false in production
-  migrations: ["src/migrations/**/*.ts"],
+  synchronize: false, // never true, in any environment
+  migrations: ['src/database/migrations/*.ts'],
 });
 ```
 
 ### CLI Commands
 
+Use the `package.json` scripts, never `npx typeorm` directly: they already carry
+`-d src/database/data-source.ts`, so the data source path cannot drift. Every
+`npm`/`npx` command runs inside the container — see `nestjs-project/CLAUDE.md` →
+"Commands".
+
 ```bash
 # Generate migration from entity changes (compares entities vs current schema)
-npx typeorm migration:generate src/migrations/CreateUsers -d src/data-source.ts
+docker compose exec nestjs-api npm run migration:generate -- src/database/migrations/CreateUsers
 
 # Create empty migration (for custom SQL, seeds, data migrations)
-npx typeorm migration:create src/migrations/SeedUsers
+# the only script without `-d`: it writes a file, it never touches the database
+docker compose exec nestjs-api npm run migration:create -- src/database/migrations/SeedUsers
 
 # Run pending migrations
-npx typeorm migration:run -d src/data-source.ts
+docker compose exec nestjs-api npm run migration:run
 
 # Revert last migration
-npx typeorm migration:revert -d src/data-source.ts
+docker compose exec nestjs-api npm run migration:revert
 ```
+
+Migrations must land in `src/database/migrations/` — the only directory
+`data-source.ts` scans. A migration written anywhere else is never picked up and
+`migration:run` reports no error.
 
 ### Workflow
 
@@ -57,21 +67,9 @@ npx typeorm migration:revert -d src/data-source.ts
 5. Commit both the entity change and the migration file together
 
 **Key points:**
-- `synchronize: false` in production — enforced via config validation (e.g., Joi schema in `ConfigModule.forRoot()`)
-- `synchronize: true` is acceptable in development for convenience, as it auto-syncs schema without running migrations
-- Use NestJS `ConfigModule` with validation to guarantee `synchronize` is never `true` in production:
-  ```typescript
-  ConfigModule.forRoot({
-    validationSchema: Joi.object({
-      NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
-      DB_SYNCHRONIZE: Joi.when('NODE_ENV', {
-        is: 'production',
-        then: Joi.boolean().valid(false).default(false),
-        otherwise: Joi.boolean().default(true),
-      }),
-    }),
-  })
-  ```
+- `synchronize: false` in every environment — see `.claude/rules/typeorm-migrations.md` → "Safety"
+- Development and tests included: `src/test/create-test-data-source.ts` builds the test schema with `migrations: ALL_MIGRATIONS` + `migrationsRun`, so the suites exercise the same schema path as production
+- There is no `DB_SYNCHRONIZE` variable to toggle: `synchronize: false` is hardcoded in `src/database/data-source.ts`, `src/app.module.ts` and `src/test/create-test-data-source.ts`, and the project's Joi validation (`src/config/env.validation.ts`, wired through `ConfigModule.forRoot({ validationSchema })`) does not declare one
 - Use `migration:generate` for schema changes, `migration:create` for data/seed migrations
 - Always review generated migrations before running them
 - Commit entity changes and migration files in the same commit
