@@ -156,14 +156,14 @@ Measured inside the container on **2026-10-07**, on the lock after `npm ci`:
 
 | Scope                                   | Findings                  |
 |-----------------------------------------|---------------------------|
-| `npm audit`                             | 21 — 21 moderate, 0 high  |
-| `npm audit --omit=dev` (runtime tree)   | 2 — 2 moderate, 0 high    |
+| `npm audit`                             | 20 — 20 moderate, 0 high  |
+| `npm audit --omit=dev` (runtime tree)   | 0                         |
 
 Re-measure before quoting these numbers — the count also moves as new advisories are published, with no change to the lock.
 
 ### Accepted: the `js-yaml` / `sprintf-js` cluster (the moderates)
 
-Chain: `sprintf-js@1.0.3` → `argparse@1.x` → `js-yaml@3.15.2` → `@istanbuljs/load-nyc-config` → the whole Jest graph. 19 of the 21 moderate entries are Jest/istanbul packages, absent from the runtime tree.
+Chain: `sprintf-js@1.0.3` → `argparse@1.x` → `js-yaml@3.15.2` → `@istanbuljs/load-nyc-config` → the whole Jest graph. All 20 moderate entries are Jest/istanbul packages, absent from the runtime tree.
 
 Accepted because:
 
@@ -173,7 +173,11 @@ Accepted because:
 
 **Revisit when `@istanbuljs/load-nyc-config` moves off `js-yaml@3`**, then reinstall and re-measure.
 
-Note: the same `js-yaml` audit entry also covers the `js-yaml@5.x` bundled under `@nestjs/swagger`, which **is** a runtime dependency and is therefore not part of this acceptance.
+### Resolved: `js-yaml@5.3.0` under `@nestjs/swagger` — issue #52
+
+`@nestjs/swagger@11.4.7` pins `"js-yaml": "5.3.0"` exactly, inside the advisory range `5.0.0 - 5.4.0` (GHSA-r3ph-w7gj-g6xm), and it is a **runtime** dependency. No `@nestjs/swagger` 11.x release moves off it, and `12.x` requires `@nestjs/core`/`@nestjs/common` `^12`, so a bump is not an option. `package.json` therefore carries an npm override scoped to the swagger subtree (`overrides` → `@nestjs/swagger` → `js-yaml: ^5.4.3`), which resolves the nested copy to `5.4.3`.
+
+**Remove the override once `@nestjs/swagger` itself depends on a fixed `js-yaml`** (>= 5.4.1), then reinstall and re-measure.
 
 ### Resolved: `nodemailer` (the former high) — issue #37
 
