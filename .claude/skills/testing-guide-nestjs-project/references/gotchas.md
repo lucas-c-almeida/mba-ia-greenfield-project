@@ -83,7 +83,7 @@ afterAll(async () => {
 });
 ```
 
-If Jest still hangs, find the handle that is actually holding the event loop — do not reach for `--forceExit`, which only masks a real leak. In particular, the `CustomGC` handle that `--detectOpenHandles` blames on `src/mail/mail.module.ts` is a proven false positive and never the cause: see `nestjs-project/CLAUDE.md` → "Open handles false positive (`--detectOpenHandles`)".
+If Jest still hangs, find the handle that is actually holding the event loop — do not reach for `--forceExit`, which only masks a real leak. Historically, a `CustomGC` handle that `--detectOpenHandles` blamed on `src/mail/mail.module.ts` was a false positive, but it is no longer reported (the package behind it left the tree); for background, see `nestjs-project/CLAUDE.md` → "Open handles false positive (`--detectOpenHandles`)".
 
 ---
 
