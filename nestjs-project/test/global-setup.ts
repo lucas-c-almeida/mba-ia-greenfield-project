@@ -1,9 +1,6 @@
 import 'dotenv/config';
-import { RefreshToken } from '../src/auth/entities/refresh-token.entity';
-import { VerificationToken } from '../src/auth/entities/verification-token.entity';
-import { Channel } from '../src/channels/entities/channel.entity';
+import { ALL_ENTITIES } from '../src/database/all-entities';
 import { createTestDataSource } from '../src/test/create-test-data-source';
-import { User } from '../src/users/entities/user.entity';
 
 /**
  * Jest `globalSetup` for the e2e suites — builds the database schema once,
@@ -36,12 +33,7 @@ import { User } from '../src/users/entities/user.entity';
  * fixtures the specs set up (and `cleanAllTables`) are unaffected.
  */
 export default async function globalSetup(): Promise<void> {
-  const dataSource = createTestDataSource([
-    User,
-    Channel,
-    RefreshToken,
-    VerificationToken,
-  ]);
+  const dataSource = createTestDataSource(ALL_ENTITIES);
   await dataSource.initialize();
   await dataSource.destroy();
 }
