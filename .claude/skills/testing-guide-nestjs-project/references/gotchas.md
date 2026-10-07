@@ -102,9 +102,8 @@ If Jest still hangs, find the handle that is actually holding the event loop —
 **Fix:** Build the test schema by running the project's own migrations, via the shared helper `nestjs-project/src/test/create-test-data-source.ts`. `createTestDataSource` pins `synchronize: false` and initializes with `migrations: ALL_MIGRATIONS` (`src/database/all-migrations.ts`) plus `migrationsRun`, so there is no code path that accepts `synchronize: true`:
 
 ```typescript
+import { ALL_ENTITIES } from '../database/all-entities';
 import { createTestDataSource } from '../test/create-test-data-source';
-
-const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
 
 beforeAll(async () => {
   dataSource = createTestDataSource(ALL_ENTITIES);
@@ -114,7 +113,7 @@ beforeAll(async () => {
 
 Pass `{ runMigrations: false }` only when the suite drives the migration runner itself (as `src/database/migrations.integration-spec.ts` does) — such a suite must restore the schema in `afterAll`: see `.claude/rules/typeorm-migrations.md` → "Migration Tests Must Restore DB State".
 
-Every new migration has to be added to `ALL_MIGRATIONS`, or the integration suites silently build an outdated schema. To reset *data* between tests, never rebuild the schema — use `cleanAllTables(dataSource)` from the same helper, or the `DELETE FROM` / `TRUNCATE ... CASCADE` patterns of §1.
+The entity list is shared the same way: import `ALL_ENTITIES` from `src/database/all-entities.ts` instead of redeclaring it per spec, and add every new entity there (`all-entities.spec.ts` fails if one is missing). Every new migration has to be added to `ALL_MIGRATIONS`, or the integration suites silently build an outdated schema. To reset *data* between tests, never rebuild the schema — use `cleanAllTables(dataSource)` from the same helper, or the `DELETE FROM` / `TRUNCATE ... CASCADE` patterns of §1.
 
 ---
 

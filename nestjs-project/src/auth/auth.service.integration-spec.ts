@@ -19,6 +19,7 @@ import {
 import { MailModule } from '../mail/mail.module';
 import { MailService } from '../mail/mail.service';
 import { Channel } from '../channels/entities/channel.entity';
+import { ALL_ENTITIES } from '../database/all-entities';
 import { User } from '../users/entities/user.entity';
 import { UsersModule } from '../users/users.module';
 import {
@@ -32,8 +33,6 @@ import {
   VerificationToken,
   VerificationTokenType,
 } from './entities/verification-token.entity';
-
-const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
 
 // Every describe block must close the returned module in `afterAll`: that is what
 // releases the Nest container and, with it, the TypeORM DataSource (pg pool) and

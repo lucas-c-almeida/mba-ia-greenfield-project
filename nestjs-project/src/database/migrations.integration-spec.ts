@@ -1,8 +1,5 @@
 import { DataSource } from 'typeorm';
-import { User } from '../users/entities/user.entity';
-import { Channel } from '../channels/entities/channel.entity';
-import { RefreshToken } from '../auth/entities/refresh-token.entity';
-import { VerificationToken } from '../auth/entities/verification-token.entity';
+import { ALL_ENTITIES } from './all-entities';
 import { ALL_MIGRATIONS } from './all-migrations';
 import { createTestDataSource } from '../test/create-test-data-source';
 
@@ -19,10 +16,7 @@ describe('Database migrations (integration)', () => {
   beforeAll(async () => {
     // This suite drives the migration runner itself, so it must not have the
     // schema built for it on initialize.
-    dataSource = createTestDataSource(
-      [User, Channel, RefreshToken, VerificationToken],
-      { runMigrations: false },
-    );
+    dataSource = createTestDataSource(ALL_ENTITIES, { runMigrations: false });
 
     await dataSource.initialize();
 

@@ -66,15 +66,17 @@ Do not use a migrations glob in any data source, and keep `all-migrations.ts` ou
 
 ## Test DataSource Entity Arrays
 
-When constructing a `DataSource` for tests, pass entity classes explicitly — do **not** use glob strings:
+When constructing a `DataSource` for tests, pass entity classes explicitly — do **not** use glob strings. The list is **not** redeclared per spec: `src/database/all-entities.ts` exports `ALL_ENTITIES` as the single authoritative list, and every test data source consumes it:
 
 ```typescript
-new DataSource({
-  // ...
-  entities: [User, Channel, RefreshToken, VerificationToken],
-});
+import { ALL_ENTITIES } from '../database/all-entities';
+import { createTestDataSource } from '../test/create-test-data-source';
+
+const dataSource = createTestDataSource(ALL_ENTITIES);
 ```
 
-Glob entries (`'src/**/*.entity.ts'`) work in production via `ts-node` but break in `ts-jest` — explicit class arrays are the only reliable form in test data sources. The runtime `data-source.ts` keeps the **entities** glob on purpose: unlike a migration array it cannot go stale when a new entity is added, and a forgotten entity would make `migration:generate` emit a wrong diff instead of failing.
+Every new entity must be added to `ALL_ENTITIES` — otherwise the test data sources build a schema without it. `src/database/all-entities.spec.ts` enforces this by comparing the list against the `*.entity.ts` files under `src/`, so a forgotten registration fails the suite instead of failing mysteriously in an unrelated spec.
+
+Glob entries (`'src/**/*.entity.ts'`) work in production via `ts-node` but break in `ts-jest` — explicit class arrays are the only reliable form in test data sources. The runtime `data-source.ts` keeps the **entities** glob on purpose and does not consume `ALL_ENTITIES`: unlike a migration array it cannot go stale when a new entity is added, and a forgotten array entry would make `migration:generate` emit a wrong diff instead of failing.
 
 For TypeORM **query** pitfalls (`IsNull`, transactions, SAVEPOINT) that apply in service code, see `typeorm-queries.md`.
