@@ -7,5 +7,6 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "setupFiles": ["dotenv/config"]
+  "setupFiles": ["dotenv/config"],
+  "globalSetup": "<rootDir>/global-setup.ts"
 }
