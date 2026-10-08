@@ -8,15 +8,15 @@ export async function runSeeds(
   dataSource: DataSource,
   seeds: readonly Seed[],
 ): Promise<void> {
-  if (seeds.length === 0) {
-    console.warn(NO_SEEDS_MESSAGE);
-    return;
-  }
-
   await dataSource.initialize();
   console.log('Database connection initialized');
 
   try {
+    if (seeds.length === 0) {
+      console.warn(NO_SEEDS_MESSAGE);
+      return;
+    }
+
     for (const seed of seeds) {
       await seed(dataSource);
     }

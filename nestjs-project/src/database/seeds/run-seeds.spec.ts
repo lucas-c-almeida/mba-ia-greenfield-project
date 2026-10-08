@@ -22,15 +22,15 @@ describe('runSeeds', () => {
     jest.restoreAllMocks();
   });
 
-  it('warns that nothing was seeded and touches nothing when the list is empty', async () => {
+  it('should warn that nothing was seeded, still connecting and closing once, when the list is empty', async () => {
     await run([]);
 
     expect(warnSpy).toHaveBeenCalledWith(NO_SEEDS_MESSAGE);
-    expect(dataSource.initialize).not.toHaveBeenCalled();
-    expect(dataSource.destroy).not.toHaveBeenCalled();
+    expect(dataSource.initialize).toHaveBeenCalledTimes(1);
+    expect(dataSource.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('runs every seed in order with the data source, then closes the connection', async () => {
+  it('should run every seed in order with the data source, then close the connection', async () => {
     const calls: string[] = [];
     const first: Seed = jest.fn(() => {
       calls.push('first');
@@ -52,7 +52,7 @@ describe('runSeeds', () => {
     expect(logSpy).toHaveBeenCalledWith('Ran 2 seed(s)');
   });
 
-  it('propagates a seed failure, skips later seeds and still destroys the connection', async () => {
+  it('should propagate a seed failure, skip later seeds and still destroy the connection', async () => {
     const failure = new Error('seed boom');
     const first: Seed = jest.fn().mockRejectedValue(failure);
     const second: Seed = jest.fn().mockResolvedValue(undefined);
