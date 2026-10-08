@@ -1,14 +1,8 @@
 import { AppDataSource } from '../data-source';
+import { REGISTERED_SEEDS } from './registered-seeds';
+import { runSeeds } from './run-seeds';
 
-async function runSeed(): Promise<void> {
-  await AppDataSource.initialize();
-  console.log('Database connection initialized');
-
-  await AppDataSource.destroy();
-  console.log('Database connection closed');
-}
-
-runSeed().catch((error: unknown) => {
+runSeeds(AppDataSource, REGISTERED_SEEDS).catch((error: unknown) => {
   console.error('Seed failed:', error);
   process.exit(1);
 });

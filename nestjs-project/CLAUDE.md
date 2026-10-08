@@ -88,6 +88,7 @@ npm run migration:revert                 # Roll back the last applied migration
 npm run migration:generate -- <path>     # Generate a migration from the entity diff
 npm run migration:create -- <path>       # Create an empty migration
 npm run openapi:export                   # Regenerate nestjs-project/openapi.json
+npm run seed                             # Run the seeds registered in src/database/seeds/registered-seeds.ts (none yet: connects, warns "No seeds registered", and exits 0 without writing to the DB)
 ```
 
 ### Host-only commands (Docker / connectivity probes)
