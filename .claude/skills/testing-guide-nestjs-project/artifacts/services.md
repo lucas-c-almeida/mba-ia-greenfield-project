@@ -85,7 +85,7 @@ describe('AuthService (unit)', () => {
 ## Setup pattern — Integration test (DB contract)
 
 ```typescript
-// users.service.integration.spec.ts
+// users.service.integration-spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -101,11 +101,11 @@ describe('UsersService (integration)', () => {
       imports: [
         TypeOrmModule.forRoot({
           type: 'postgres',
-          host: process.env.DB_HOST ?? 'localhost',
+          host: process.env.DB_HOST ?? 'db',
           port: Number(process.env.DB_PORT ?? 5432),
           username: process.env.DB_USERNAME ?? 'streamtube',
           password: process.env.DB_PASSWORD ?? 'streamtube',
-          database: process.env.DB_DATABASE ?? 'streamtube',
+          database: process.env.DB_NAME ?? 'streamtube',
           entities: [User],
           synchronize: true,
         }),

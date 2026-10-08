@@ -25,7 +25,7 @@ Entities are **never** tested at the unit layer — they have no logic, only str
 ## Setup pattern
 
 ```typescript
-// user.entity.integration.spec.ts
+// user.entity.integration-spec.ts
 import { DataSource, Repository } from 'typeorm';
 import { User } from './user.entity';
 
@@ -36,11 +36,11 @@ describe('User entity (integration)', () => {
   beforeAll(async () => {
     dataSource = new DataSource({
       type: 'postgres',
-      host: process.env.DB_HOST ?? 'localhost',
+      host: process.env.DB_HOST ?? 'db',
       port: Number(process.env.DB_PORT ?? 5432),
       username: process.env.DB_USERNAME ?? 'streamtube',
       password: process.env.DB_PASSWORD ?? 'streamtube',
-      database: process.env.DB_DATABASE ?? 'streamtube',
+      database: process.env.DB_NAME ?? 'streamtube',
       entities: [User],
       synchronize: true, // OK for test setup — creates tables
     });

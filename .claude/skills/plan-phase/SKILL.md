@@ -60,7 +60,7 @@ The goal is not to enumerate every possible edge case exhaustively, but to simul
 
 When writing implementation actions, you may need to verify specific details about libs, APIs, or patterns referenced in the technical decisions. Use the Context7 MCP to fetch current documentation for any lib or framework mentioned in the decisions. This ensures implementation actions reference accurate APIs, method names, and configuration options — not outdated ones from training data.
 
-**Dispatch Context7 lookups in parallel.** At the start of plan drafting, issue one tool call per library mentioned in the decisions document, all in a single message. For example, for an auth phase that chose argon2, @nestjs/jwt, @nestjs-modules/mailer, class-validator, and typeorm, send five `mcp__context7__query-docs` calls in parallel. Do NOT look up libraries one-by-one as you write each SI — batch them upfront and refer back to the results.
+**Dispatch Context7 lookups in parallel.** At the start of plan drafting, issue one tool call per library mentioned in the decisions document, all in a single message. For example, for an auth phase that chose argon2, @nestjs/jwt, nodemailer, class-validator, and typeorm, send five `mcp__context7__query-docs` calls in parallel. Do NOT look up libraries one-by-one as you write each SI — batch them upfront and refer back to the results.
 
 Use web search for broader questions: best practices, security recommendations, RFC details, or comparisons that go beyond a single lib's docs.
 

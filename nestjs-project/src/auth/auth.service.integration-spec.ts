@@ -4,7 +4,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import type { StringValue } from 'ms';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import appConfig from '../config/app.config';
 import authConfig from '../config/auth.config';
 import mailConfig from '../config/mail.config';
@@ -17,7 +17,9 @@ import {
   TokenReuseDetectedException,
 } from '../common/exceptions/domain.exception';
 import { MailModule } from '../mail/mail.module';
+import { MailService } from '../mail/mail.service';
 import { Channel } from '../channels/entities/channel.entity';
+import { ALL_ENTITIES } from '../database/all-entities';
 import { User } from '../users/entities/user.entity';
 import { UsersModule } from '../users/users.module';
 import {
@@ -32,8 +34,9 @@ import {
   VerificationTokenType,
 } from './entities/verification-token.entity';
 
-const ALL_ENTITIES = [User, Channel, RefreshToken, VerificationToken];
-
+// Every describe block must close the returned module in `afterAll`: that is what
+// releases the Nest container and, with it, the TypeORM DataSource (pg pool) and
+// the mailer transport. Destroying only the DataSource leaks the container.
 async function createAuthTestModule(): Promise<TestingModule> {
   const ds = createTestDataSource(ALL_ENTITIES);
   return Test.createTestingModule({
@@ -63,14 +66,14 @@ async function createAuthTestModule(): Promise<TestingModule> {
   }).compile();
 }
 
-function captureConfirmationToken(authService: AuthService): Promise<string> {
+function captureConfirmationToken(): Promise<string> {
   return new Promise((resolve) => {
-    const mailServiceInstance = (authService as any).mailService;
     jest
-      .spyOn(mailServiceInstance, 'sendConfirmationEmail')
-      .mockImplementationOnce(async (_e: string, _n: string, t: string) =>
-        resolve(t),
-      );
+      .spyOn(MailService.prototype, 'sendConfirmationEmail')
+      .mockImplementationOnce((_e, _n, t) => {
+        resolve(t);
+        return Promise.resolve();
+      });
   });
 }
 
@@ -79,7 +82,7 @@ async function registerConfirmAndLogin(
   email: string,
   password: string,
 ): Promise<{ userId: string; refreshToken: string }> {
-  const capturePromise = captureConfirmationToken(authService);
+  const capturePromise = captureConfirmationToken();
   const { id: userId } = await authService.register({ email, password });
   const confirmToken = await capturePromise;
   await authService.confirm(confirmToken);
@@ -92,12 +95,13 @@ async function registerConfirmAndLogin(
 
 describe('AuthService — register (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -105,7 +109,7 @@ describe('AuthService — register (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -162,7 +166,7 @@ describe('AuthService — register (integration)', () => {
   });
 
   it('confirmation token hash matches sha256 of raw token delivered by mail service', async () => {
-    const capturePromise = captureConfirmationToken(authService);
+    const capturePromise = captureConfirmationToken();
     const result = await authService.register({
       email: 'verify@example.com',
       password: 'password123',
@@ -183,12 +187,13 @@ describe('AuthService — register (integration)', () => {
 
 describe('AuthService — confirm (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -196,7 +201,7 @@ describe('AuthService — confirm (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -205,7 +210,7 @@ describe('AuthService — confirm (integration)', () => {
   });
 
   it('sets is_confirmed = true and used_at on valid token', async () => {
-    const capturePromise = captureConfirmationToken(authService);
+    const capturePromise = captureConfirmationToken();
     const { id: userId } = await authService.register({
       email: 'confirm@example.com',
       password: 'password123',
@@ -230,8 +235,8 @@ describe('AuthService — confirm (integration)', () => {
   });
 
   it('throws TokenExpiredException for an expired token', async () => {
-    const capturePromise = captureConfirmationToken(authService);
-    const { id: userId } = await authService.register({
+    const capturePromise = captureConfirmationToken();
+    await authService.register({
       email: 'expired@example.com',
       password: 'password123',
     });
@@ -254,18 +259,19 @@ describe('AuthService — confirm (integration)', () => {
 
 describe('AuthService — resendConfirmation (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -307,11 +313,12 @@ describe('AuthService — resendConfirmation (integration)', () => {
 describe('AuthService — login (integration)', () => {
   let authService: AuthService;
   let jwtService: JwtService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     jwtService = module.get(JwtService);
     dataSource = module.get(DataSource);
@@ -319,7 +326,7 @@ describe('AuthService — login (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -331,7 +338,7 @@ describe('AuthService — login (integration)', () => {
     email: string,
     password: string,
   ): Promise<string> {
-    const capturePromise = captureConfirmationToken(authService);
+    const capturePromise = captureConfirmationToken();
     const { id } = await authService.register({ email, password });
     const capturedToken = await capturePromise;
     await authService.confirm(capturedToken);
@@ -386,11 +393,12 @@ describe('AuthService — login (integration)', () => {
 describe('AuthService — refresh (integration)', () => {
   let authService: AuthService;
   let jwtService: JwtService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     jwtService = module.get(JwtService);
     dataSource = module.get(DataSource);
@@ -398,7 +406,7 @@ describe('AuthService — refresh (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -466,8 +474,8 @@ describe('AuthService — refresh (integration)', () => {
 
     const activeTokens = await refreshTokenRepository.findBy({
       family,
-      revoked_at: null,
-    } as any);
+      revoked_at: IsNull(),
+    });
     expect(activeTokens.length).toBeGreaterThan(0);
   });
 
@@ -503,18 +511,19 @@ describe('AuthService — refresh (integration)', () => {
 
 describe('AuthService — logout (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     refreshTokenRepository = dataSource.getRepository(RefreshToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -560,31 +569,32 @@ describe('AuthService — logout (integration)', () => {
   });
 });
 
-function capturePasswordResetToken(authService: AuthService): Promise<string> {
+function capturePasswordResetToken(): Promise<string> {
   return new Promise((resolve) => {
-    const mailServiceInstance = (authService as any).mailService;
     jest
-      .spyOn(mailServiceInstance, 'sendPasswordResetEmail')
-      .mockImplementationOnce(async (_e: string, _n: string, t: string) =>
-        resolve(t),
-      );
+      .spyOn(MailService.prototype, 'sendPasswordResetEmail')
+      .mockImplementationOnce((_e, _n, t) => {
+        resolve(t);
+        return Promise.resolve();
+      });
   });
 }
 
 describe('AuthService — forgotPassword (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -593,7 +603,7 @@ describe('AuthService — forgotPassword (integration)', () => {
   });
 
   it('persists a password reset token and sends an email containing the raw token', async () => {
-    const capturePromise = capturePasswordResetToken(authService);
+    const capturePromise = capturePasswordResetToken();
     const { id: userId } = await authService.register({
       email: 'forgot@example.com',
       password: 'password123',
@@ -616,7 +626,7 @@ describe('AuthService — forgotPassword (integration)', () => {
   });
 
   it('invalidates previously issued unused reset tokens', async () => {
-    const capturePromise1 = capturePasswordResetToken(authService);
+    const capturePromise1 = capturePasswordResetToken();
     const { id: userId } = await authService.register({
       email: 'reissue@example.com',
       password: 'password123',
@@ -628,7 +638,7 @@ describe('AuthService — forgotPassword (integration)', () => {
       .update(firstRawToken)
       .digest('hex');
 
-    const capturePromise2 = capturePasswordResetToken(authService);
+    const capturePromise2 = capturePasswordResetToken();
     await authService.forgotPassword('reissue@example.com');
     await capturePromise2;
 
@@ -654,13 +664,14 @@ describe('AuthService — forgotPassword (integration)', () => {
 
 describe('AuthService — resetPassword (integration)', () => {
   let authService: AuthService;
+  let module: TestingModule;
   let dataSource: DataSource;
   let verificationTokenRepository: Repository<VerificationToken>;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
 
   beforeAll(async () => {
-    const module = await createAuthTestModule();
+    module = await createAuthTestModule();
     authService = module.get(AuthService);
     dataSource = module.get(DataSource);
     verificationTokenRepository = dataSource.getRepository(VerificationToken);
@@ -669,7 +680,7 @@ describe('AuthService — resetPassword (integration)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    await module.close();
   });
 
   beforeEach(async () => {
@@ -686,7 +697,7 @@ describe('AuthService — resetPassword (integration)', () => {
       email,
       password,
     );
-    const capturePromise = capturePasswordResetToken(authService);
+    const capturePromise = capturePasswordResetToken();
     await authService.forgotPassword(email);
     const resetToken = await capturePromise;
     return { userId, resetToken };

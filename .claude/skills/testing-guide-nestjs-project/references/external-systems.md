@@ -14,11 +14,11 @@ How each external system is handled in tests. These strategies were confirmed wi
 ```typescript
 {
   type: 'postgres',
-  host: process.env.DB_HOST ?? 'localhost',
+  host: process.env.DB_HOST ?? 'db', // Compose service name — tests run inside the container
   port: Number(process.env.DB_PORT ?? 5432),
   username: process.env.DB_USERNAME ?? 'streamtube',
   password: process.env.DB_PASSWORD ?? 'streamtube',
-  database: process.env.DB_DATABASE ?? 'streamtube',
+  database: process.env.DB_NAME ?? 'streamtube',
   synchronize: true, // auto-create tables in test setup
 }
 ```
@@ -99,7 +99,7 @@ describe('StorageService (integration)', () => {
 // In test module
 BullModule.forRoot({
   connection: {
-    host: process.env.REDIS_HOST ?? 'localhost',
+    host: process.env.REDIS_HOST ?? 'redis', // Compose service name
     port: Number(process.env.REDIS_PORT ?? 6379),
   },
 }),
@@ -142,7 +142,7 @@ mailpit:
 // In mail module or config
 {
   transport: {
-    host: process.env.SMTP_HOST ?? 'localhost',
+    host: process.env.SMTP_HOST ?? 'mailpit', // Compose service name
     port: Number(process.env.SMTP_PORT ?? 1025),
   },
 }
@@ -153,14 +153,14 @@ mailpit:
 describe('MailService (integration)', () => {
   beforeEach(async () => {
     // Clear all captured emails via Mailpit API
-    await fetch('http://localhost:8025/api/v1/messages', { method: 'DELETE' });
+    await fetch('http://mailpit:8025/api/v1/messages', { method: 'DELETE' });
   });
 
   it('should send confirmation email', async () => {
     await mailService.sendConfirmation('user@test.com', 'token-123');
 
     // Query Mailpit API for captured emails
-    const response = await fetch('http://localhost:8025/api/v1/messages');
+    const response = await fetch('http://mailpit:8025/api/v1/messages');
     const data = await response.json();
 
     expect(data.messages).toHaveLength(1);
@@ -172,7 +172,7 @@ describe('MailService (integration)', () => {
 
 **Key points:**
 - Mailpit captures ALL emails — no mocking, no side effects
-- Use Mailpit's REST API (`http://localhost:8025/api/v1/messages`) to inspect sent emails
+- Use Mailpit's REST API (`http://mailpit:8025/api/v1/messages`) to inspect sent emails — tests run inside the `nestjs-api` container, so use the Compose service name (the project's helper `src/test/mailpit.ts` builds the URL from `MAIL_HOST`, default `mailpit`)
 - Clear captured emails in `beforeEach` to ensure test isolation
-- Web UI at `http://localhost:8025` for manual debugging
+- Web UI at `http://localhost:8025` for manual debugging — this one is opened from the **developer's host browser**, where the Compose-published port is reached via `localhost`
 - Tests the full SMTP transport path — if the SMTP config is wrong, the test fails
